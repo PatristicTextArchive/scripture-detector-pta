@@ -1,0 +1,74 @@
+testament	work_name	book_code
+ot	Genesis	gen
+ot	Exodus	exod
+ot	Leviticus	lev
+ot	Numeri	num
+ot	Deuteronomium	deut
+ot	Iosue	josh
+ot	Iudicum	judg
+ot	Ruth	ruth
+ot	I Samuelis	1sam
+ot	II Samuelis	2sam
+ot	I Regum	1kgs
+ot	II Regum	2kgs
+ot	I Paralipomenon	1chr
+ot	II Paralipomenon	2chr
+ot	Esdrae	ezra
+ot	Nehemiae	neh
+ap	Tobiae	tob
+ap	Iudith	jdt
+ot	Esther	esth
+ap	I Machabaeorum	1macc
+ap	II Machabaeorum	2macc
+ot	Iob	job
+ot	Psalmi	ps
+ot	Proverbia	prov
+ot	Ecclesiastes	eccl
+ot	Canticum Canticorum	song
+ap	Sapientia	wis
+ap	Ecclesiasticus	sir
+ot	Isaias	isa
+ot	Ieremias	jer
+ot	Lamentationes	lam
+ap	Baruch	bar
+ot	Ezechiel	ezek
+ot	Daniel	dan
+ot	Osee	hos
+ot	Ioel	joel
+ot	Amos	amos
+ot	Abdias	obad
+ot	Ionas	jonah
+ot	Michaeas	mic
+ot	Nahum	nah
+ot	Habacuc	hab
+ot	Sophonias	zeph
+ot	Aggaeus	hag
+ot	Zacharias	zech
+ot	Malachias	mal
+nt	Matthaeus	matt
+nt	Marcus	mark
+nt	Lucas	luke
+nt	Ioannes	john
+nt	Actus Apostolorum	acts
+nt	Romanos	rom
+nt	I Corinthios	1cor
+nt	II Corinthios	2cor
+nt	Galatas	gal
+nt	Ephesios	eph
+nt	Philippenses	phil
+nt	Colossenses	col
+nt	I Thessalonicenses	1thess
+nt	II Thessalonicenses	2thess
+nt	I Timotheum	1tim
+nt	II Timotheum	2tim
+nt	Titum	titus
+nt	Philemonem	phlm
+nt	Hebraeos	heb
+nt	Iacobi	jas
+nt	I Petri	1pet
+nt	II Petri	2pet
+nt	I Ioannis	1john
+nt	II Ioannis	2john
+nt	III Ioannis	3john
+nt	Iudae	jude
+nt	Apocalypsis	rev

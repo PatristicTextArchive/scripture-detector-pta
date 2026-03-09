@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scripture Detector — Settings</title>
+<style>
+  :root {
+    --bg: #f1f5f9; --surface: #ffffff; --text: #1e293b; --muted: #64748b;
+    --blue: #2563eb; --green: #16a34a; --red: #dc2626; --radius: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #f8fafc; padding: 20px 32px; display: flex; align-items: center; gap: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25); flex-wrap: wrap; }
+  .header h1 { font-size: 1.3rem; font-weight: 700; }
+  .header .subtitle { font-size: .85rem; color: #94a3b8; margin-top: 2px; }
+  .header nav { margin-left: auto; display: flex; gap: 12px; }
+  .header nav a { color: #94a3b8; text-decoration: none; font-size: .85rem; padding: 6px 14px;
+    border-radius: 6px; transition: .2s; }
+  .header nav a:hover, .header nav a.active { color: #f8fafc; background: rgba(255,255,255,.1); }
+
+  .container { max-width: 640px; margin: 0 auto; padding: 32px 24px; }
+
+  .card { background: var(--surface); border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); padding: 28px; margin-bottom: 20px; }
+  .card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+  .card h3 { font-size: .85rem; font-weight: 700; margin: 18px 0 8px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+  .field input, .field select { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: .9rem; font-family: inherit; transition: border-color .2s; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+  .field .hint { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+  .radio-group { display: flex; gap: 12px; margin-bottom: 16px; }
+  .radio-card { flex: 1; padding: 16px; border: 2px solid #e2e8f0; border-radius: 10px;
+    cursor: pointer; transition: .2s; text-align: center; }
+  .radio-card:hover { border-color: #94a3b8; }
+  .radio-card.selected { border-color: var(--blue); background: rgba(37,99,235,.04); }
+  .radio-card input { display: none; }
+  .radio-card .rc-title { font-size: .9rem; font-weight: 700; margin-bottom: 2px; }
+  .radio-card .rc-desc { font-size: .74rem; color: var(--muted); }
+
+  .conditional { display: none; }
+  .conditional.visible { display: block; }
+
+  .btn { padding: 10px 24px; border-radius: 8px; border: none; font-size: .88rem;
+    font-weight: 700; cursor: pointer; transition: .2s; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-success { background: var(--green); color: #fff; }
+
+  .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: .76rem; font-weight: 600; }
+  .status-ok { background: #dcfce7; color: var(--green); }
+  .status-warn { background: #fef3c7; color: #92400e; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 8px;
+    color: #fff; font-size: .88rem; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 1100; transition: opacity .3s; }
+  .toast-ok { background: var(--green); }
+  .toast-err { background: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Scripture Detector</h1>
+    <div class="subtitle">Settings</div>
+  </div>
+  <nav>
+    <a href="/">Sources</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/settings" class="active">Settings</a>
+  </nav>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h2>API Configuration</h2>
+
+    <label style="font-size:.84rem;font-weight:600;margin-bottom:10px;display:block">API Provider</label>
+    <div class="radio-group">
+      <label class="radio-card" id="rc-gemini" onclick="selectProvider('gemini')">
+        <input type="radio" name="provider" value="gemini">
+        <div class="rc-title">Gemini API</div>
+        <div class="rc-desc">Google AI Studio API Key</div>
+      </label>
+      <label class="radio-card" id="rc-vertex" onclick="selectProvider('vertex')">
+        <input type="radio" name="provider" value="vertex">
+        <div class="rc-title">Vertex AI</div>
+        <div class="rc-desc">Google Cloud Project</div>
+      </label>
+    </div>
+
+    <div class="conditional" id="gemini-fields">
+      <div class="field">
+        <label for="api-key">API Key</label>
+        <input type="password" id="api-key" placeholder="AIza...">
+        <div class="hint">Get your key from <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a></div>
+      </div>
+    </div>
+
+    <div class="conditional" id="vertex-fields">
+      <div class="field">
+        <label for="project-id">Project ID</label>
+        <input type="text" id="project-id" placeholder="my-gcp-project">
+      </div>
+      <div class="field">
+        <label for="location">Location</label>
+        <input type="text" id="location" placeholder="global" value="global">
+        <div class="hint">e.g. global, us-central1, europe-west1</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Model Selection</h2>
+    <div class="field">
+      <label for="model-select">Model</label>
+      <select id="model-select">
+        {% for m in models %}
+        <option value="{{ m.id }}">{{ m.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="actions">
+    <span id="save-status"></span>
+    <button class="btn btn-primary" id="save-btn" onclick="saveSettings()">Save Settings</button>
+  </div>
+</div>
+
+<script>
+let currentProvider = 'gemini';
+
+function showToast(msg, ok) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
+}
+
+function selectProvider(p) {
+  currentProvider = p;
+  document.getElementById('rc-gemini').classList.toggle('selected', p === 'gemini');
+  document.getElementById('rc-vertex').classList.toggle('selected', p === 'vertex');
+  document.getElementById('gemini-fields').classList.toggle('visible', p === 'gemini');
+  document.getElementById('vertex-fields').classList.toggle('visible', p === 'vertex');
+}
+
+function loadSettings() {
+  fetch('/api/settings')
+    .then(r => r.json())
+    .then(s => {
+      const provider = s.api_provider || 'gemini';
+      selectProvider(provider);
+
+      if (s.gemini_api_key) document.getElementById('api-key').value = s.gemini_api_key;
+      if (s.vertex_project_id) document.getElementById('project-id').value = s.vertex_project_id;
+      if (s.vertex_location) document.getElementById('location').value = s.vertex_location;
+      if (s.model) document.getElementById('model-select').value = s.model;
+    });
+}
+
+function saveSettings() {
+  const btn = document.getElementById('save-btn');
+  const status = document.getElementById('save-status');
+  btn.disabled = true;
+
+  const payload = {
+    api_provider: currentProvider,
+    model: document.getElementById('model-select').value,
+  };
+
+  if (currentProvider === 'gemini') {
+    const key = document.getElementById('api-key').value.trim();
+    if (key) payload.gemini_api_key = key;
+  } else {
+    payload.vertex_project_id = document.getElementById('project-id').value.trim();
+    payload.vertex_location = document.getElementById('location').value.trim() || 'global';
+  }
+
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(() => {
+    showToast('Settings saved!', true);
+    btn.classList.add('btn-success');
+    btn.textContent = 'Saved!';
+    setTimeout(() => {
+      btn.classList.remove('btn-success');
+      btn.textContent = 'Save Settings';
+    }, 2000);
+  })
+  .catch(e => showToast('Error: ' + e.message, false))
+  .finally(() => { btn.disabled = false; });
+}
+
+loadSettings();
+</script>
+</body>
+</html>

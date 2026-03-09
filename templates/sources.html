@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scripture Detector</title>
+<style>
+  :root {
+    --bg: #f1f5f9; --surface: #ffffff; --text: #1e293b; --muted: #64748b;
+    --green: #16a34a; --red: #dc2626; --amber: #d97706; --blue: #2563eb;
+    --full: #16a34a; --partial: #ca8a04; --paraphrase: #0891b2; --allusion: #9333ea;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #f8fafc; padding: 20px 32px; display: flex; align-items: center; gap: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25); flex-wrap: wrap; }
+  .header h1 { font-size: 1.3rem; font-weight: 700; }
+  .header .subtitle { font-size: .85rem; color: #94a3b8; margin-top: 2px; }
+  .header nav { margin-left: auto; display: flex; gap: 12px; }
+  .header nav a { color: #94a3b8; text-decoration: none; font-size: .85rem; padding: 6px 14px;
+    border-radius: 6px; transition: .2s; }
+  .header nav a:hover, .header nav a.active { color: #f8fafc; background: rgba(255,255,255,.1); }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+  .toolbar { display: flex; gap: 12px; margin-bottom: 24px; align-items: center; flex-wrap: wrap; }
+  .toolbar .summary { font-size: .85rem; color: var(--muted); margin-left: auto; }
+  .toolbar .summary strong { color: var(--text); }
+  .btn { padding: 9px 20px; border-radius: 8px; border: none; font-size: .85rem;
+    font-weight: 600; cursor: pointer; transition: .2s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid #cbd5e1; }
+  .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
+  .btn-sm { padding: 5px 12px; font-size: .78rem; }
+
+  .source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+  .source-card { background: var(--surface); border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); padding: 22px; transition: .2s;
+    display: flex; flex-direction: column; gap: 14px; cursor: pointer;
+    border: 2px solid transparent; }
+  .source-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); transform: translateY(-2px);
+    border-color: #e2e8f0; }
+  .source-card .sc-header { display: flex; align-items: flex-start; gap: 12px; }
+  .source-card .sc-name { font-size: 1.05rem; font-weight: 700; flex: 1; line-height: 1.3; }
+  .source-card .sc-date { font-size: .72rem; color: var(--muted); white-space: nowrap; }
+  .source-card .sc-stats { display: flex; gap: 20px; }
+  .source-card .sc-stat { display: flex; flex-direction: column; }
+  .source-card .sc-stat-val { font-size: 1.2rem; font-weight: 800; }
+  .source-card .sc-stat-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .04em; }
+  .sc-stat-blue .sc-stat-val { color: var(--blue); }
+  .sc-stat-amber .sc-stat-val { color: var(--amber); }
+
+  .type-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
+  .type-bar div { min-width: 3px; }
+  .type-legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .type-legend-item { display: flex; align-items: center; gap: 4px; font-size: .72rem; color: var(--muted); }
+  .type-legend-swatch { width: 8px; height: 8px; border-radius: 2px; }
+
+  .sc-books { font-size: .75rem; color: var(--muted); line-height: 1.4; }
+  .sc-books strong { color: var(--text); font-size: .78rem; }
+
+  .sc-footer { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 4px;
+    border-top: 1px solid #f1f5f9; }
+
+  .empty-state { text-align: center; padding: 80px 20px; }
+  .empty-state h2 { font-size: 1.3rem; margin-bottom: 10px; color: var(--text); }
+  .empty-state p { color: var(--muted); margin-bottom: 24px; font-size: .95rem; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000;
+    display: none; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border-radius: 14px; padding: 28px; width: 90%;
+    max-width: 600px; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+  .modal h2 { font-size: 1.15rem; margin-bottom: 20px; }
+  .modal label { display: block; font-size: .84rem; font-weight: 600; margin-bottom: 5px;
+    margin-top: 16px; color: var(--muted); }
+  .modal label:first-of-type { margin-top: 0; }
+  .modal input, .modal textarea { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1;
+    border-radius: 8px; font-size: .9rem; font-family: inherit; transition: border-color .2s; }
+  .modal input:focus, .modal textarea:focus { outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .modal textarea { min-height: 200px; resize: vertical; }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 8px;
+    color: #fff; font-size: .88rem; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 1100; transition: opacity .3s; }
+  .toast-ok { background: var(--green); }
+  .toast-err { background: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Scripture Detector</h1>
+    <div class="subtitle">Scriptural Quote Detection & Analysis</div>
+  </div>
+  <nav>
+    <a href="/" class="active">Sources</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/settings">Settings</a>
+  </nav>
+</div>
+
+<div class="container" id="app">
+  <div style="text-align:center;padding:60px;color:var(--muted)">Loading...</div>
+</div>
+
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h2>Add New Source</h2>
+    <label for="src-name">Source Name</label>
+    <input type="text" id="src-name" placeholder="e.g. Augustine, Confessions Book I">
+    <label for="src-text">Text</label>
+    <textarea id="src-text" placeholder="Paste the text to analyze here..."></textarea>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-src-btn" onclick="saveSource()">Add Source</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const app = document.getElementById('app');
+const addModal = document.getElementById('add-modal');
+let RAW = null;
+
+function showToast(msg, ok) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function openModal() { addModal.classList.add('active'); document.getElementById('src-name').focus(); }
+function closeModal() { addModal.classList.remove('active'); }
+
+function saveSource() {
+  const name = document.getElementById('src-name').value.trim();
+  const text = document.getElementById('src-text').value.trim();
+  if (!name || !text) { showToast('Name and text are required', false); return; }
+  const btn = document.getElementById('save-src-btn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  fetch('/api/sources', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, text}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { showToast(data.error, false); return; }
+    closeModal();
+    document.getElementById('src-name').value = '';
+    document.getElementById('src-text').value = '';
+    showToast('Source added!', true);
+    loadData();
+  })
+  .catch(e => showToast('Error: ' + e.message, false))
+  .finally(() => { btn.disabled = false; btn.textContent = 'Add Source'; });
+}
+
+function deleteSource(e, id, name) {
+  e.stopPropagation();
+  if (!confirm(`Delete "${name}" and all its quotes?`)) return;
+  fetch(`/api/sources/${id}`, {method: 'DELETE'})
+    .then(() => { showToast('Source deleted', true); loadData(); })
+    .catch(e => showToast('Error: ' + e.message, false));
+}
+
+function render() {
+  if (!RAW) return;
+  const {source_count, quote_count, reference_count, sources} = RAW;
+
+  if (source_count === 0) {
+    app.innerHTML = `
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openModal()">+ Add Source</button>
+      </div>
+      <div class="empty-state">
+        <h2>No sources yet</h2>
+        <p>Add a text source to get started with scripture detection.</p>
+        <button class="btn btn-primary" onclick="openModal()" style="font-size:1rem;padding:12px 28px">+ Add Your First Source</button>
+      </div>`;
+    return;
+  }
+
+  app.innerHTML = `
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="openModal()">+ Add Source</button>
+      <div class="summary">
+        <strong>${source_count}</strong> source${source_count !== 1 ? 's' : ''}
+        &nbsp;&middot;&nbsp;
+        <strong>${quote_count}</strong> quote${quote_count !== 1 ? 's' : ''}
+        &nbsp;&middot;&nbsp;
+        <strong>${reference_count}</strong> reference${reference_count !== 1 ? 's' : ''}
+      </div>
+    </div>
+    <div class="source-grid" id="source-grid"></div>`;
+
+  const grid = document.getElementById('source-grid');
+  (sources || []).forEach(s => {
+    const td = s.type_distribution || {};
+    const bd = s.book_distribution || [];
+    const total = (td.full||0) + (td.partial||0) + (td.paraphrase||0) + (td.allusion||0);
+    const p = v => total ? ((v/total)*100).toFixed(0) : 0;
+
+    const topBooks = bd.slice(0, 4).map(b => b.book_name || b.book_code);
+    const booksText = topBooks.length > 0
+      ? topBooks.join(', ') + (bd.length > 4 ? ` +${bd.length - 4} more` : '')
+      : 'No books referenced yet';
+
+    const card = document.createElement('div');
+    card.className = 'source-card';
+    card.onclick = () => window.location.href = '/viewer/' + s.id;
+    card.innerHTML = `
+      <div class="sc-header">
+        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-date">${new Date(s.created_at).toLocaleDateString()}</div>
+      </div>
+      <div class="sc-stats">
+        <div class="sc-stat sc-stat-blue">
+          <div class="sc-stat-val">${s.quote_count}</div>
+          <div class="sc-stat-lbl">Quotes</div>
+        </div>
+        <div class="sc-stat sc-stat-amber">
+          <div class="sc-stat-val">${bd.length}</div>
+          <div class="sc-stat-lbl">Books</div>
+        </div>
+      </div>
+      ${total > 0 ? `
+      <div>
+        <div class="type-bar">
+          ${td.full ? `<div style="width:${p(td.full)}%;background:var(--full)"></div>` : ''}
+          ${td.partial ? `<div style="width:${p(td.partial)}%;background:var(--partial)"></div>` : ''}
+          ${td.paraphrase ? `<div style="width:${p(td.paraphrase)}%;background:var(--paraphrase)"></div>` : ''}
+          ${td.allusion ? `<div style="width:${p(td.allusion)}%;background:var(--allusion)"></div>` : ''}
+        </div>
+        <div class="type-legend">
+          ${td.full ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--full)"></div>${td.full} Full</div>` : ''}
+          ${td.partial ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--partial)"></div>${td.partial} Partial</div>` : ''}
+          ${td.paraphrase ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--paraphrase)"></div>${td.paraphrase} Paraphrase</div>` : ''}
+          ${td.allusion ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--allusion)"></div>${td.allusion} Allusion</div>` : ''}
+        </div>
+      </div>` : '<div style="font-size:.78rem;color:var(--muted)">Not yet processed</div>'}
+      <div class="sc-books">${esc(booksText)}</div>
+      <div class="sc-footer">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();window.location.href='/viewer/${s.id}'">View &rarr;</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteSource(event,${s.id},'${esc(s.name).replace(/'/g,"\\'")}')">Delete</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function loadData() {
+  fetch('/api/dashboard')
+    .then(r => r.json())
+    .then(data => { RAW = data; render(); });
+}
+
+addModal.addEventListener('click', e => { if (e.target === addModal) closeModal(); });
+loadData();
+</script>
+</body>
+</html>

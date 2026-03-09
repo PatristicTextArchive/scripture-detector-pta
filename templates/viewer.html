@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scripture Detector — {{ source.name }}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    --bg: #f1f5f9; --surface: #ffffff; --text: #1e293b; --muted: #64748b;
+    --blue: #2563eb; --green: #16a34a; --red: #dc2626; --amber: #d97706;
+    --full: #16a34a; --partial: #ca8a04; --paraphrase: #0891b2; --allusion: #9333ea;
+    --full-bg: rgba(22,163,74,.15); --partial-bg: rgba(202,138,4,.15);
+    --paraphrase-bg: rgba(8,145,178,.15); --allusion-bg: rgba(147,51,234,.15);
+    --radius: 8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #f8fafc; padding: 14px 24px; display: flex; align-items: center;
+    gap: 16px; flex-wrap: wrap; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25); }
+  .header h1 { font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+  .header .source-name { font-size: .82rem; color: #94a3b8; }
+  .header a.back { color: #94a3b8; text-decoration: none; font-size: .82rem; padding: 6px 12px;
+    border-radius: 6px; border: 1px solid #475569; white-space: nowrap; transition: .2s; }
+  .header a.back:hover { color: #f8fafc; border-color: #64748b; }
+
+  .action-bar { display: flex; gap: 10px; padding: 10px 24px; background: var(--surface);
+    border-bottom: 1px solid #e2e8f0; align-items: center; flex-wrap: wrap; }
+  .btn { padding: 7px 16px; border-radius: 6px; border: none; font-size: .82rem;
+    font-weight: 600; cursor: pointer; transition: .2s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid #cbd5e1; }
+  .btn-ghost:hover { background: #f1f5f9; color: var(--text); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { padding: 4px 10px; font-size: .76rem; }
+
+  .select-styled { padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1;
+    background: #fff; font-size: .82rem; color: var(--text); }
+
+  .tabs { display: flex; border-bottom: 2px solid #e2e8f0; padding: 0 24px; background: var(--surface); }
+  .tab { padding: 10px 20px; font-size: .85rem; font-weight: 600; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: .2s;
+    user-select: none; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .main { display: grid; grid-template-columns: 1fr 380px; height: calc(100vh - 150px); }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+  .text-panel { padding: 28px 32px; overflow-y: auto; line-height: 1.85;
+    font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+    font-size: 1.02rem; white-space: pre-wrap; word-wrap: break-word; }
+
+  .seg-full { background: var(--full-bg); border-bottom: 2px solid var(--full);
+    cursor: pointer; transition: background .15s; border-radius: 2px; }
+  .seg-partial { background: var(--partial-bg); border-bottom: 2px solid var(--partial);
+    cursor: pointer; transition: background .15s; border-radius: 2px; }
+  .seg-paraphrase { background: var(--paraphrase-bg); border-bottom: 2px solid var(--paraphrase);
+    cursor: pointer; transition: background .15s; border-radius: 2px; }
+  .seg-allusion { background: var(--allusion-bg); border-bottom: 2px solid var(--allusion);
+    cursor: pointer; transition: background .15s; border-radius: 2px; }
+  .seg-multi { background: rgba(37,99,235,.15); border-bottom: 2px solid var(--blue);
+    cursor: pointer; transition: background .15s; border-radius: 2px; }
+  [class^="seg-"]:hover { filter: brightness(.92); }
+  .seg-active { outline: 2px solid var(--text); outline-offset: 1px; }
+
+  .ann-panel { background: #f8fafc; border-left: 1px solid #e2e8f0; overflow-y: auto;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .ann-panel h2 { font-size: .82rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin: 6px 0 2px; }
+  .ann-card { background: var(--surface); border-radius: var(--radius);
+    border-left: 4px solid #cbd5e1; padding: 12px 14px; font-size: .83rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); cursor: pointer; transition: box-shadow .15s;
+    position: relative; }
+  .ann-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,.1); }
+  .ann-card.active { box-shadow: 0 0 0 2px var(--text); }
+  .ann-full { border-left-color: var(--full); }
+  .ann-partial { border-left-color: var(--partial); }
+  .ann-paraphrase { border-left-color: var(--paraphrase); }
+  .ann-allusion { border-left-color: var(--allusion); }
+
+  .ann-refs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .ref-badge { display: inline-block; padding: 2px 7px; border-radius: 4px;
+    font-size: .73rem; font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace;
+    background: #f1f5f9; color: var(--text); }
+  .type-badge { display: inline-block; padding: 1px 6px; border-radius: 3px;
+    font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .type-full { background: #dcfce7; color: var(--full); }
+  .type-partial { background: #fef9c3; color: var(--partial); }
+  .type-paraphrase { background: #cffafe; color: var(--paraphrase); }
+  .type-allusion { background: #f3e8ff; color: var(--allusion); }
+
+  .ann-quote { color: var(--muted); font-style: italic; margin-bottom: 8px;
+    max-height: 3.6em; overflow: hidden; line-height: 1.2em; font-size: .8rem; }
+  .ann-verse { border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px; font-size: .78rem; }
+  .ann-verse strong { color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace; font-size: .72rem; }
+  .ann-verse .vtext { color: var(--muted); }
+  .ann-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+  /* Distribution tab */
+  .dist-content { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  .dist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .dist-grid { grid-template-columns: 1fr; } }
+  .dist-card { background: var(--surface); border-radius: var(--radius);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); padding: 20px; }
+  .dist-card h3 { font-size: .82rem; font-weight: 700; margin-bottom: 14px;
+    text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .chart-wrap { position: relative; width: 100%; height: 300px; }
+
+  /* Selection toolbar */
+  .sel-toolbar { position: fixed; z-index: 200; background: var(--surface); border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.2); padding: 6px; display: none; gap: 4px; }
+  .sel-toolbar.visible { display: flex; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000;
+    display: none; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border-radius: 12px; padding: 28px; width: 90%;
+    max-width: 580px; box-shadow: 0 20px 60px rgba(0,0,0,.2); max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 1.1rem; margin-bottom: 14px; }
+  .modal label { display: block; font-size: .82rem; font-weight: 600; margin-bottom: 4px;
+    margin-top: 14px; color: var(--muted); }
+  .modal input, .modal textarea, .modal select { width: 100%; padding: 8px 12px;
+    border: 1px solid #cbd5e1; border-radius: 6px; font-size: .88rem; font-family: inherit; }
+  .modal input:focus, .modal select:focus, .modal textarea:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .modal textarea { min-height: 60px; resize: vertical; }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+  /* Reference tags */
+  .ref-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; padding: 4px 0; }
+  .ref-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+    background: #e0e7ff; color: #3730a3; border-radius: 5px; font-size: .78rem;
+    font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace; }
+  .ref-tag button { background: none; border: none; cursor: pointer; color: #6366f1;
+    font-size: .9rem; line-height: 1; padding: 0 2px; }
+  .ref-tag button:hover { color: var(--red); }
+
+  /* Reference picker */
+  .ref-picker { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 8px;
+    background: #fafbfc; }
+  .ref-picker-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .ref-picker-row select { flex: 1; padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1;
+    font-size: .84rem; background: #fff; }
+  .ref-picker-row select:disabled { opacity: .5; }
+  .ref-verses { max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0;
+    border-radius: 6px; background: #fff; }
+  .ref-verse-item { display: flex; gap: 8px; padding: 6px 10px; font-size: .82rem;
+    cursor: pointer; transition: background .1s; align-items: flex-start;
+    border-bottom: 1px solid #f8fafc; }
+  .ref-verse-item:last-child { border-bottom: none; }
+  .ref-verse-item:hover { background: #f0f4ff; }
+  .ref-verse-item.added { background: #ecfdf5; }
+  .ref-verse-num { font-weight: 700; color: var(--blue); min-width: 24px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: .78rem; padding-top: 1px; }
+  .ref-verse-text { color: var(--muted); flex: 1; line-height: 1.35; font-size: .8rem; }
+  .ref-verse-add { font-size: .7rem; font-weight: 700; color: var(--green); white-space: nowrap;
+    padding-top: 1px; }
+  .ref-verse-item.added .ref-verse-add { color: var(--muted); }
+  .ref-no-verses { padding: 16px; text-align: center; color: var(--muted); font-size: .84rem; }
+
+  .loading { display: flex; align-items: center; justify-content: center;
+    height: 100%; font-size: 1.1rem; color: var(--muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 24px; height: 24px; border: 3px solid #e2e8f0;
+    border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite;
+    margin-right: 10px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 24px; border-radius: 8px;
+    color: #fff; font-size: .88rem; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 1100; transition: opacity .3s; }
+  .toast-ok { background: var(--green); }
+  .toast-err { background: var(--red); }
+
+  .legend-bar { display: flex; gap: 14px; font-size: .73rem; color: var(--muted);
+    padding: 0 24px 0; align-items: center; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-swatch { width: 20px; height: 8px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Scripture Detector</h1>
+    <div class="source-name">{{ source.name }}</div>
+  </div>
+  <nav style="margin-left:auto;display:flex;gap:8px">
+    <a href="/" class="back">Sources</a>
+    <a href="/dashboard" class="back">Dashboard</a>
+    <a href="/settings" class="back">Settings</a>
+  </nav>
+</div>
+
+<div class="action-bar">
+  <button class="btn btn-primary" id="process-btn" onclick="processSource()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    Process with AI
+  </button>
+  <select class="select-styled" id="model-select">
+    {% for m in models %}
+    <option value="{{ m.id }}" {{ 'selected' if m.id == current_model else '' }}>{{ m.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-ghost" id="add-quote-btn" onclick="openAddModal()">+ Add Quote</button>
+  <div style="margin-left:auto">
+    <div class="legend-bar">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--full-bg);border-bottom:2px solid var(--full)"></div>Full</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--partial-bg);border-bottom:2px solid var(--partial)"></div>Partial</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--paraphrase-bg);border-bottom:2px solid var(--paraphrase)"></div>Paraphrase</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--allusion-bg);border-bottom:2px solid var(--allusion)"></div>Allusion</div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="text">Text</div>
+  <div class="tab" data-tab="distribution">Distribution</div>
+</div>
+
+<div class="tab-content active" id="tab-text">
+  <div class="main">
+    <div class="text-panel" id="text-panel"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    <div class="ann-panel" id="ann-panel"></div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-distribution">
+  <div class="dist-content">
+    <div class="dist-grid">
+      <div class="dist-card">
+        <h3>Bible Books Referenced</h3>
+        <div class="chart-wrap"><canvas id="dist-book-chart"></canvas></div>
+      </div>
+      <div class="dist-card">
+        <h3>Quote Type Distribution</h3>
+        <div class="chart-wrap"><canvas id="dist-type-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sel-toolbar" id="sel-toolbar">
+  <button class="btn btn-primary btn-sm" onclick="analyzeSelection()">Analyze Selection</button>
+  <button class="btn btn-ghost btn-sm" onclick="addFromSelection()">Add as Quote</button>
+</div>
+
+<div class="modal-overlay" id="quote-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add Quote</h2>
+    <input type="hidden" id="qm-id">
+    <label>Quote Text</label>
+    <textarea id="qm-text" rows="2"></textarea>
+    <label>Quote Type</label>
+    <select id="qm-type">
+      <option value="full">Full</option>
+      <option value="partial">Partial</option>
+      <option value="paraphrase">Paraphrase</option>
+      <option value="allusion" selected>Allusion</option>
+    </select>
+    <label>References</label>
+    <div class="ref-tags" id="qm-ref-tags"></div>
+    <div class="ref-picker">
+      <div class="ref-picker-row">
+        <select id="ref-book" onchange="onBookChange()">
+          <option value="">Select Book...</option>
+        </select>
+        <select id="ref-chapter" disabled onchange="onChapterChange()">
+          <option value="">Ch.</option>
+        </select>
+      </div>
+      <div id="ref-verses-wrap" style="display:none">
+        <div class="ref-verses" id="ref-verses"></div>
+      </div>
+    </div>
+    <input type="hidden" id="qm-start">
+    <input type="hidden" id="qm-end">
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="closeQuoteModal()">Cancel</button>
+      <button class="btn btn-primary" id="qm-save" onclick="saveQuote()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SOURCE_ID = {{ source.id }};
+const textPanel = document.getElementById('text-panel');
+const annPanel = document.getElementById('ann-panel');
+const selToolbar = document.getElementById('sel-toolbar');
+const quoteModal = document.getElementById('quote-modal');
+let DATA = null;
+let selRange = null;
+let distChartsRendered = false;
+let modalRefs = [];
+let bibleBooks = null;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showToast(msg, ok) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'distribution' && !distChartsRendered) loadDistribution();
+  });
+});
+
+// ── Model selection ─────────────────────────────────────────────────────────
+document.getElementById('model-select').addEventListener('change', e => {
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({model: e.target.value}),
+  });
+});
+
+// ── Load source data ────────────────────────────────────────────────────────
+function loadSource() {
+  textPanel.innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+  annPanel.innerHTML = '';
+  fetch(`/api/sources/${SOURCE_ID}`)
+    .then(r => r.json())
+    .then(data => { DATA = data; renderText(); });
+}
+
+function renderText() {
+  if (!DATA) return;
+  const {segments, annotations} = DATA;
+
+  let html = '';
+  segments.forEach((seg, i) => {
+    if (seg.annotation_ids.length === 0) {
+      html += `<span data-start="${seg.start}" data-end="${seg.end}">${esc(seg.text)}</span>`;
+    } else {
+      const types = new Set(seg.annotation_ids.map(id => annotations[id]?.quote_type));
+      let cls = 'seg-multi';
+      if (types.size === 1) cls = `seg-${[...types][0]}`;
+      const ids = seg.annotation_ids.join(',');
+      html += `<span class="${cls}" data-ann="${ids}" data-start="${seg.start}" data-end="${seg.end}">${esc(seg.text)}</span>`;
+    }
+  });
+  textPanel.innerHTML = html;
+
+  let annHtml = '<h2>Annotations (' + annotations.length + ')</h2>';
+  if (annotations.length === 0) {
+    annHtml += '<p style="color:var(--muted);font-size:.84rem;padding:12px 0">No quotes detected. Click "Process with AI" to analyze this text.</p>';
+  }
+  annotations.forEach((a, i) => {
+    const qt = a.quote_type || 'allusion';
+    const snippet = (a.quote_text || '').slice(0, 140);
+    let versesHtml = '';
+    (a.verses || []).forEach(v => {
+      const vt = v.text ? esc(v.text) : '<span style="color:var(--red);font-style:italic">not found</span>';
+      versesHtml += `<div class="ann-verse"><strong>${esc(v.ref)}</strong> <span class="vtext">${vt}</span></div>`;
+    });
+    annHtml += `
+      <div class="ann-card ann-${qt}" data-idx="${i}" data-id="${a.id}">
+        <div class="ann-refs">
+          <span class="type-badge type-${qt}">${qt}</span>
+          ${(a.refs||[]).map(r => `<span class="ref-badge">${esc(r)}</span>`).join('')}
+        </div>
+        <div class="ann-quote">"${esc(snippet)}${snippet.length < (a.quote_text||'').length ? '...' : ''}"</div>
+        ${versesHtml}
+        <div class="ann-actions">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editQuote(${i})">Edit</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteQuote(${a.id})">Delete</button>
+        </div>
+      </div>`;
+  });
+  annPanel.innerHTML = annHtml;
+  bindTextEvents();
+}
+
+function bindTextEvents() {
+  textPanel.querySelectorAll('[data-ann]').forEach(span => {
+    span.addEventListener('click', () => {
+      clearActive();
+      span.classList.add('seg-active');
+      span.dataset.ann.split(',').forEach(id => {
+        const card = annPanel.querySelector(`.ann-card[data-idx="${id}"]`);
+        if (card) { card.classList.add('active'); card.scrollIntoView({behavior:'smooth',block:'center'}); }
+      });
+    });
+  });
+  annPanel.querySelectorAll('.ann-card').forEach(card => {
+    card.addEventListener('click', () => {
+      clearActive();
+      card.classList.add('active');
+      const idx = card.dataset.idx;
+      textPanel.querySelectorAll('[data-ann]').forEach(span => {
+        if (span.dataset.ann.split(',').includes(idx)) {
+          span.classList.add('seg-active');
+          span.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+      });
+    });
+  });
+}
+
+function clearActive() {
+  document.querySelectorAll('.seg-active').forEach(e => e.classList.remove('seg-active'));
+  document.querySelectorAll('.ann-card.active').forEach(e => e.classList.remove('active'));
+}
+
+// ── Text selection ──────────────────────────────────────────────────────────
+function getCharPos(node, offset) {
+  let el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  while (el && !el.dataset.start) el = el.parentElement;
+  if (!el) return null;
+  return parseInt(el.dataset.start) + Math.min(offset, (el.textContent || '').length);
+}
+
+textPanel.addEventListener('mouseup', () => {
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed || sel.toString().trim().length < 3) {
+      selToolbar.classList.remove('visible'); selRange = null; return;
+    }
+    const range = sel.getRangeAt(0);
+    const s = getCharPos(range.startContainer, range.startOffset);
+    const e = getCharPos(range.endContainer, range.endOffset);
+    if (s === null || e === null || e <= s) {
+      selToolbar.classList.remove('visible'); selRange = null; return;
+    }
+    selRange = {start: Math.min(s,e), end: Math.max(s,e), text: sel.toString()};
+    const rect = range.getBoundingClientRect();
+    selToolbar.style.top = (rect.top - 40 + window.scrollY) + 'px';
+    selToolbar.style.left = (rect.left + rect.width/2 - 100) + 'px';
+    selToolbar.classList.add('visible');
+  }, 10);
+});
+
+document.addEventListener('mousedown', e => {
+  if (!selToolbar.contains(e.target)) selToolbar.classList.remove('visible');
+});
+
+// ── Process ─────────────────────────────────────────────────────────────────
+const PROCESS_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>';
+
+function processSource() {
+  const btn = document.getElementById('process-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div> Processing...';
+  fetch(`/api/sources/${SOURCE_ID}/process`, {method: 'POST'})
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error, false); return; }
+      showToast(`Found ${data.count} quotes`, true);
+      distChartsRendered = false;
+      loadSource();
+    })
+    .catch(e => showToast('Error: ' + e.message, false))
+    .finally(() => { btn.disabled = false; btn.innerHTML = PROCESS_ICON + ' Process with AI'; });
+}
+
+function analyzeSelection() {
+  if (!selRange) return;
+  selToolbar.classList.remove('visible');
+  const btn = document.getElementById('process-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div> Analyzing selection...';
+  fetch(`/api/sources/${SOURCE_ID}/process-selection`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({start: selRange.start, end: selRange.end}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { showToast(data.error, false); return; }
+    showToast(`Found ${data.count} quotes in selection`, true);
+    distChartsRendered = false;
+    loadSource();
+  })
+  .catch(e => showToast('Error: ' + e.message, false))
+  .finally(() => { btn.disabled = false; btn.innerHTML = PROCESS_ICON + ' Process with AI'; selRange = null; });
+}
+
+// ── Reference Picker ────────────────────────────────────────────────────────
+function loadBibleBooks() {
+  if (bibleBooks) return Promise.resolve();
+  return fetch('/api/bible/books').then(r => r.json()).then(books => {
+    bibleBooks = books;
+    const sel = document.getElementById('ref-book');
+    sel.innerHTML = '<option value="">Select Book...</option>';
+    books.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.code;
+      opt.textContent = `${b.name} (${b.code})`;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function onBookChange() {
+  const book = document.getElementById('ref-book').value;
+  const chSel = document.getElementById('ref-chapter');
+  const versesWrap = document.getElementById('ref-verses-wrap');
+  chSel.innerHTML = '<option value="">Ch.</option>';
+  chSel.disabled = true;
+  versesWrap.style.display = 'none';
+  if (!book) return;
+  fetch(`/api/bible/${book}/chapters`).then(r => r.json()).then(chapters => {
+    chapters.forEach(ch => {
+      const opt = document.createElement('option');
+      opt.value = ch;
+      opt.textContent = ch;
+      chSel.appendChild(opt);
+    });
+    chSel.disabled = false;
+  });
+}
+
+function onChapterChange() {
+  const book = document.getElementById('ref-book').value;
+  const chapter = document.getElementById('ref-chapter').value;
+  const versesWrap = document.getElementById('ref-verses-wrap');
+  const versesList = document.getElementById('ref-verses');
+  versesWrap.style.display = 'none';
+  if (!book || !chapter) return;
+  fetch(`/api/bible/${book}/${chapter}/verses`).then(r => r.json()).then(verses => {
+    if (verses.length === 0) {
+      versesList.innerHTML = '<div class="ref-no-verses">No verses found</div>';
+    } else {
+      versesList.innerHTML = verses.map(v => {
+        const ref = `${book}_${chapter}:${v.verse}`;
+        const isAdded = modalRefs.includes(ref);
+        return `<div class="ref-verse-item${isAdded ? ' added' : ''}" data-ref="${esc(ref)}" onclick="toggleVerse(this,'${esc(ref)}')">
+          <div class="ref-verse-num">${v.verse}</div>
+          <div class="ref-verse-text">${esc(v.text)}</div>
+          <div class="ref-verse-add">${isAdded ? 'Added' : '+ Add'}</div>
+        </div>`;
+      }).join('');
+    }
+    versesWrap.style.display = 'block';
+  });
+}
+
+function toggleVerse(el, ref) {
+  const idx = modalRefs.indexOf(ref);
+  if (idx >= 0) {
+    modalRefs.splice(idx, 1);
+    el.classList.remove('added');
+    el.querySelector('.ref-verse-add').textContent = '+ Add';
+  } else {
+    modalRefs.push(ref);
+    el.classList.add('added');
+    el.querySelector('.ref-verse-add').textContent = 'Added';
+  }
+  renderRefTags();
+}
+
+function removeRef(ref) {
+  modalRefs = modalRefs.filter(r => r !== ref);
+  renderRefTags();
+  document.querySelectorAll(`.ref-verse-item[data-ref="${ref}"]`).forEach(el => {
+    el.classList.remove('added');
+    el.querySelector('.ref-verse-add').textContent = '+ Add';
+  });
+}
+
+function renderRefTags() {
+  const container = document.getElementById('qm-ref-tags');
+  if (modalRefs.length === 0) {
+    container.innerHTML = '<span style="color:var(--muted);font-size:.78rem">No references added yet</span>';
+    return;
+  }
+  container.innerHTML = modalRefs.map(ref =>
+    `<span class="ref-tag">${esc(ref)} <button onclick="removeRef('${esc(ref)}')">&times;</button></span>`
+  ).join('');
+}
+
+// ── Quote CRUD ──────────────────────────────────────────────────────────────
+function resetModal() {
+  document.getElementById('qm-id').value = '';
+  document.getElementById('qm-text').value = '';
+  document.getElementById('qm-type').value = 'allusion';
+  document.getElementById('qm-start').value = '';
+  document.getElementById('qm-end').value = '';
+  document.getElementById('ref-book').value = '';
+  document.getElementById('ref-chapter').innerHTML = '<option value="">Ch.</option>';
+  document.getElementById('ref-chapter').disabled = true;
+  document.getElementById('ref-verses-wrap').style.display = 'none';
+  modalRefs = [];
+  renderRefTags();
+}
+
+function openAddModal() {
+  loadBibleBooks().then(() => {
+    document.getElementById('modal-title').textContent = 'Add Quote';
+    resetModal();
+    quoteModal.classList.add('active');
+  });
+}
+
+function addFromSelection() {
+  if (!selRange) return;
+  selToolbar.classList.remove('visible');
+  loadBibleBooks().then(() => {
+    document.getElementById('modal-title').textContent = 'Add Quote';
+    resetModal();
+    document.getElementById('qm-text').value = selRange.text;
+    document.getElementById('qm-start').value = selRange.start;
+    document.getElementById('qm-end').value = selRange.end;
+    quoteModal.classList.add('active');
+    window.getSelection().removeAllRanges();
+  });
+}
+
+function editQuote(idx) {
+  const a = DATA.annotations[idx];
+  if (!a) return;
+  loadBibleBooks().then(() => {
+    document.getElementById('modal-title').textContent = 'Edit Quote';
+    resetModal();
+    document.getElementById('qm-id').value = a.id;
+    document.getElementById('qm-text').value = a.quote_text;
+    document.getElementById('qm-type').value = a.quote_type;
+    document.getElementById('qm-start').value = a.span_start ?? '';
+    document.getElementById('qm-end').value = a.span_end ?? '';
+    modalRefs = [...(a.refs || [])];
+    renderRefTags();
+    quoteModal.classList.add('active');
+  });
+}
+
+function closeQuoteModal() { quoteModal.classList.remove('active'); }
+
+function saveQuote() {
+  const id = document.getElementById('qm-id').value;
+  const text = document.getElementById('qm-text').value.trim();
+  const type = document.getElementById('qm-type').value;
+  const startVal = document.getElementById('qm-start').value;
+  const endVal = document.getElementById('qm-end').value;
+  const span_start = startVal !== '' ? parseInt(startVal) : null;
+  const span_end = endVal !== '' ? parseInt(endVal) : null;
+
+  if (!text) { showToast('Quote text is required', false); return; }
+
+  const saveBtn = document.getElementById('qm-save');
+  saveBtn.disabled = true;
+
+  const payload = {quote_text: text, quote_type: type, references: modalRefs, span_start, span_end};
+  const url = id ? `/api/quotes/${id}` : '/api/quotes';
+  const method = id ? 'PUT' : 'POST';
+  if (!id) payload.source_id = SOURCE_ID;
+
+  fetch(url, {
+    method,
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(() => {
+    closeQuoteModal();
+    showToast(id ? 'Quote updated' : 'Quote added', true);
+    distChartsRendered = false;
+    loadSource();
+  })
+  .catch(e => showToast('Error: ' + e.message, false))
+  .finally(() => { saveBtn.disabled = false; });
+}
+
+function deleteQuote(id) {
+  if (!confirm('Delete this quote?')) return;
+  fetch(`/api/quotes/${id}`, {method: 'DELETE'})
+    .then(() => { showToast('Quote deleted', true); distChartsRendered = false; loadSource(); })
+    .catch(e => showToast('Error: ' + e.message, false));
+}
+
+// ── Distribution ────────────────────────────────────────────────────────────
+let bookChart = null, typeChart = null;
+
+function loadDistribution() {
+  fetch(`/api/sources/${SOURCE_ID}/distribution`)
+    .then(r => r.json())
+    .then(data => { renderDistCharts(data); distChartsRendered = true; });
+}
+
+function renderDistCharts(data) {
+  if (bookChart) { bookChart.destroy(); bookChart = null; }
+  if (typeChart) { typeChart.destroy(); typeChart = null; }
+
+  const bookCanvas = document.getElementById('dist-book-chart');
+  const typeCanvas = document.getElementById('dist-type-chart');
+
+  const bd = data.book_distribution || [];
+  if (bd.length > 0) {
+    const colors = bd.map(d => d.testament === 'nt' ? '#2563eb' : d.testament === 'ot' ? '#d97706' : '#64748b');
+    bookChart = new Chart(bookCanvas, {
+      type: 'bar',
+      data: {
+        labels: bd.map(d => d.book_name || d.book_code),
+        datasets: [{ data: bd.map(d => d.count), backgroundColor: colors, borderRadius: 4 }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { ticks: { font: { size: 11 } } } },
+      },
+    });
+  }
+
+  const td = data.type_distribution || {};
+  const typeLabels = ['full', 'partial', 'paraphrase', 'allusion'];
+  const typeColors = ['#16a34a', '#ca8a04', '#0891b2', '#9333ea'];
+  const typeData = typeLabels.map(t => td[t] || 0);
+  if (typeData.some(v => v > 0)) {
+    typeChart = new Chart(typeCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: typeLabels.map(t => t.charAt(0).toUpperCase() + t.slice(1)),
+        datasets: [{ data: typeData, backgroundColor: typeColors, borderWidth: 2, borderColor: '#fff' }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } },
+      },
+    });
+  }
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+quoteModal.addEventListener('click', e => { if (e.target === quoteModal) closeQuoteModal(); });
+loadSource();
+</script>
+</body>
+</html>
