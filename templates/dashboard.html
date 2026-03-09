@@ -4,86 +4,69 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scripture Detector — Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  :root {
-    --bg: #f1f5f9; --surface: #ffffff; --text: #1e293b; --muted: #64748b;
-    --green: #16a34a; --red: #dc2626; --amber: #d97706; --blue: #2563eb;
-    --full: #16a34a; --partial: #ca8a04; --paraphrase: #0891b2; --allusion: #9333ea;
-    --radius: 10px;
+  .container { max-width: 1400px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 28px; }
+  .kpi {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+    text-align: center;
+    transition: var(--transition);
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
-
-  .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    color: #f8fafc; padding: 20px 32px; display: flex; align-items: center; gap: 20px;
-    box-shadow: 0 2px 12px rgba(0,0,0,.25); flex-wrap: wrap; }
-  .header h1 { font-size: 1.3rem; font-weight: 700; }
-  .header .subtitle { font-size: .85rem; color: #94a3b8; margin-top: 2px; }
-  .header nav { margin-left: auto; display: flex; gap: 12px; }
-  .header nav a { color: #94a3b8; text-decoration: none; font-size: .85rem; padding: 6px 14px;
-    border-radius: 6px; transition: .2s; }
-  .header nav a:hover, .header nav a.active { color: #f8fafc; background: rgba(255,255,255,.1); }
-
-  .container { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
-
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 14px; margin-bottom: 28px; }
-  .kpi { background: var(--surface); border-radius: var(--radius); padding: 22px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.06); text-align: center; }
-  .kpi .val { font-size: 2.2rem; font-weight: 800; line-height: 1.1; }
-  .kpi .lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase;
-    letter-spacing: .05em; margin-top: 6px; }
-  .kpi-blue .val { color: var(--blue); }
+  .kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .kpi .val { font-size: 2.4rem; font-weight: 900; line-height: 1.1; letter-spacing: -.02em; }
+  .kpi .lbl { font-size: .7rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .06em; margin-top: 8px; font-weight: 600; }
+  .kpi-primary .val { color: var(--primary); }
   .kpi-green .val { color: var(--green); }
-  .kpi-amber .val { color: var(--amber); }
+  .kpi-accent .val { color: var(--accent); }
   .kpi-purple .val { color: var(--allusion); }
 
   .cards-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
   @media (max-width: 800px) { .cards-row { grid-template-columns: 1fr; } }
-  .card { background: var(--surface); border-radius: var(--radius);
-    box-shadow: 0 1px 4px rgba(0,0,0,.06); padding: 22px; }
-  .card h3 { font-size: .82rem; font-weight: 700; margin-bottom: 14px;
-    text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+
   .chart-wrap { position: relative; width: 100%; height: 280px; }
 
-  .type-bar { display: flex; height: 32px; border-radius: 6px; overflow: hidden; margin-bottom: 10px; }
+  .type-bar { height: 36px; border-radius: var(--radius-sm); margin-bottom: 12px; }
   .type-bar div { display: flex; align-items: center; justify-content: center;
-    font-size: .72rem; font-weight: 700; color: #fff; min-width: 28px; transition: width .3s; }
-  .type-legend { display: flex; gap: 16px; flex-wrap: wrap; }
-  .type-legend-item { display: flex; align-items: center; gap: 5px; font-size: .8rem; }
-  .type-legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+    font-size: .72rem; font-weight: 700; color: #fff; min-width: 28px; transition: width .4s; }
 
-  .section-title { font-size: .95rem; font-weight: 700; margin-bottom: 14px;
-    text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .section-title { font-size: .9rem; font-weight: 700; margin-bottom: 16px;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 
   table { width: 100%; border-collapse: collapse; font-size: .84rem; }
-  th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #e2e8f0;
-    font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
-    cursor: pointer; user-select: none; white-space: nowrap; }
+  th { text-align: left; padding: 12px 14px; border-bottom: 2px solid var(--border);
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    cursor: pointer; user-select: none; white-space: nowrap; font-weight: 700; }
   th:hover { color: var(--text); }
-  td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
-  tr:hover td { background: #f8fafc; }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--border-light); }
+  tr:hover td { background: var(--bg); }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
-  .link-cell a { color: var(--blue); text-decoration: none; font-weight: 600; }
+  .link-cell a { color: var(--primary); text-decoration: none; font-weight: 600; }
   .link-cell a:hover { text-decoration: underline; }
-  .mini-bar { display: flex; height: 16px; border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .mini-bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; min-width: 80px;
+    background: var(--bg-secondary); }
   .mini-bar div { min-width: 2px; }
-
-  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
-  .empty-state h2 { font-size: 1.2rem; margin-bottom: 8px; color: var(--text); }
-  .empty-state p { margin-bottom: 16px; }
-
-  .loading { text-align: center; padding: 60px; color: var(--muted); font-size: 1rem; }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div>
-    <h1>Scripture Detector</h1>
-    <div class="subtitle">Global Analytics Dashboard</div>
-  </div>
+  <a href="/" class="header-brand">
+    <img src="/static/logo.svg" alt="Logo" class="header-logo">
+    <div>
+      <div class="header-title">Scripture Detector</div>
+      <div class="header-subtitle">Analytics Dashboard</div>
+    </div>
+  </a>
   <nav>
     <a href="/">Sources</a>
     <a href="/dashboard" class="active">Dashboard</a>
@@ -92,7 +75,7 @@
 </div>
 
 <div class="container" id="app">
-  <div class="loading">Loading dashboard data...</div>
+  <div class="loading"><div class="spinner"></div>Loading dashboard data...</div>
 </div>
 
 <script>
@@ -108,9 +91,10 @@ function render() {
 
   if (source_count === 0) {
     app.innerHTML = `<div class="empty-state">
+      <img src="/static/logo.svg" alt="" class="empty-icon">
       <h2>No data yet</h2>
       <p>Add sources and process them to see analytics here.</p>
-      <a href="/" style="color:var(--blue);font-weight:600">Go to Sources &rarr;</a>
+      <a href="/" class="btn btn-primary">Go to Sources</a>
     </div>`;
     return;
   }
@@ -132,11 +116,11 @@ function render() {
 
   app.innerHTML = `
     <div class="kpi-grid">
-      <div class="kpi kpi-blue"><div class="val">${source_count}</div><div class="lbl">Sources</div></div>
+      <div class="kpi kpi-primary"><div class="val">${source_count}</div><div class="lbl">Sources</div></div>
       <div class="kpi kpi-green"><div class="val">${quote_count}</div><div class="lbl">Quotes Found</div></div>
-      <div class="kpi kpi-amber"><div class="val">${reference_count}</div><div class="lbl">Scripture References</div></div>
+      <div class="kpi kpi-accent"><div class="val">${reference_count}</div><div class="lbl">Scripture References</div></div>
       <div class="kpi"><div class="val">${bd.length}</div><div class="lbl">Books Referenced</div></div>
-      <div class="kpi kpi-purple"><div class="val">${esc(topBook)}</div><div class="lbl">Most Referenced</div></div>
+      <div class="kpi kpi-purple"><div class="val" style="font-size:1.4rem">${esc(topBook)}</div><div class="lbl">Most Referenced</div></div>
     </div>
 
     <div class="cards-row">
@@ -222,45 +206,47 @@ function render() {
 }
 
 function renderCharts(bookDist, sources) {
-  // Top books bar chart
+  const chartFont = { family: "'Inter', system-ui, sans-serif" };
+
   const bookCanvas = document.getElementById('book-chart');
   if (bookCanvas && bookDist.length > 0) {
     const top = bookDist.slice(0, 15);
-    const colors = top.map(d => d.testament === 'nt' ? '#2563eb' : d.testament === 'ot' ? '#d97706' : '#64748b');
+    const colors = top.map(d => d.testament === 'nt' ? '#6366f1' : d.testament === 'ot' ? '#f59e0b' : '#9ca3af');
     new Chart(bookCanvas, {
       type: 'bar',
       data: {
         labels: top.map(d => d.book_name || d.book_code),
-        datasets: [{ data: top.map(d => d.count), backgroundColor: colors, borderRadius: 4 }],
+        datasets: [{ data: top.map(d => d.count), backgroundColor: colors, borderRadius: 6 }],
       },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { ticks: { font: { size: 11 } } } },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0, font: chartFont }, grid: { color: '#f0ede7' } },
+          y: { ticks: { font: { ...chartFont, size: 11 } }, grid: { display: false } },
+        },
       },
     });
   }
 
-  // Testament distribution (OT vs NT vs Apocrypha)
   const testCanvas = document.getElementById('testament-chart');
   if (testCanvas && bookDist.length > 0) {
     const tally = {ot: 0, nt: 0, ap: 0};
     bookDist.forEach(d => { tally[d.testament] = (tally[d.testament] || 0) + d.count; });
     const labels = []; const data = []; const colors = [];
-    if (tally.ot) { labels.push('Old Testament'); data.push(tally.ot); colors.push('#d97706'); }
-    if (tally.nt) { labels.push('New Testament'); data.push(tally.nt); colors.push('#2563eb'); }
-    if (tally.ap) { labels.push('Apocrypha'); data.push(tally.ap); colors.push('#64748b'); }
+    if (tally.ot) { labels.push('Old Testament'); data.push(tally.ot); colors.push('#f59e0b'); }
+    if (tally.nt) { labels.push('New Testament'); data.push(tally.nt); colors.push('#6366f1'); }
+    if (tally.ap) { labels.push('Apocrypha'); data.push(tally.ap); colors.push('#9ca3af'); }
     new Chart(testCanvas, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 3, borderColor: '#fff', hoverOffset: 8 }] },
       options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } } },
+        responsive: true, maintainAspectRatio: false, cutout: '60%',
+        plugins: { legend: { position: 'bottom', labels: { padding: 20, font: { ...chartFont, size: 12 }, usePointStyle: true, pointStyle: 'rectRounded' } } },
       },
     });
   }
 
-  // Quotes per source bar chart
   const srcCanvas = document.getElementById('source-chart');
   if (srcCanvas && sources.length > 0) {
     const sorted = [...sources].sort((a,b) => b.quote_count - a.quote_count).slice(0, 15);
@@ -268,12 +254,15 @@ function renderCharts(bookDist, sources) {
       type: 'bar',
       data: {
         labels: sorted.map(s => s.name.length > 25 ? s.name.slice(0,22) + '...' : s.name),
-        datasets: [{ data: sorted.map(s => s.quote_count), backgroundColor: '#6366f1', borderRadius: 4 }],
+        datasets: [{ data: sorted.map(s => s.quote_count), backgroundColor: '#8b5cf6', borderRadius: 6 }],
       },
       options: {
         indexAxis: 'y', responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { ticks: { font: { size: 11 } } } },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0, font: chartFont }, grid: { color: '#f0ede7' } },
+          y: { ticks: { font: { ...chartFont, size: 11 } }, grid: { display: false } },
+        },
       },
     });
   }
