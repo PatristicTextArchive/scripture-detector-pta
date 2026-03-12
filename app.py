@@ -277,6 +277,11 @@ def settings_page():
     return render_template("settings.html", models=MODELS)
 
 
+@app.route("/about")
+def about_page():
+    return render_template("about.html")
+
+
 # ── API: Sources ─────────────────────────────────────────────────────────────
 
 @app.route("/api/sources", methods=["POST"])

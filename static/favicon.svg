@@ -1,15 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="32" y2="32">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+      <stop offset="0%" stop-color="#00356b"/>
+      <stop offset="100%" stop-color="#1a5796"/>
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#bg)"/>
+  <!-- Gold stripe top -->
+  <rect x="0" y="0" width="32" height="3" rx="2" fill="#f9be00"/>
   <!-- Book -->
-  <path d="M7 9C7 8.44772 7.44772 8 8 8H15C15 8 16 8 16 9V23C16 23 15 22 14 22H8C7.44772 22 7 21.5523 7 21V9Z" fill="white" opacity="0.9"/>
-  <path d="M16 9C16 8 17 8 17 8H24C24.5523 8 25 8.44772 25 9V21C25 21.5523 24.5523 22 24 22H18C17 22 16 23 16 23V9Z" fill="white" opacity="0.9"/>
+  <path d="M7 11C7 10.4477 7.44772 10 8 10H15C15 10 16 10 16 11V23C16 23 15 22 14 22H8C7.44772 22 7 21.5523 7 21V11Z" fill="white" opacity="0.9"/>
+  <path d="M16 11C16 10 17 10 17 10H24C24.5523 10 25 10.4477 25 11V21C25 21.5523 24.5523 22 24 22H18C17 22 16 23 16 23V11Z" fill="white" opacity="0.9"/>
   <!-- Magnifying glass -->
-  <circle cx="22" cy="19" r="4.5" stroke="#fbbf24" stroke-width="2" fill="none"/>
-  <line x1="25.2" y1="22.2" x2="28" y2="25" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="22" cy="20" r="4.5" stroke="#f9be00" stroke-width="2" fill="none"/>
+  <line x1="25.2" y1="23.2" x2="28" y2="26" stroke="#f9be00" stroke-width="2" stroke-linecap="round"/>
 </svg>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scripture Detector — About</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .container { max-width: 860px; }
+
+  /* Hero */
+  .hero {
+    background: var(--primary);
+    color: #fff;
+    padding: 56px 32px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent-bright);
+  }
+  .hero-logo {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 20px;
+    filter: brightness(10);
+    opacity: .9;
+  }
+  .hero h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -.03em;
+    margin-bottom: 12px;
+    color: #fff;
+  }
+  .hero p {
+    font-size: 1.08rem;
+    color: rgba(255,255,255,.8);
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.65;
+  }
+  .hero-badges {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    font-size: .8rem;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+  .hero-badge .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-bright);
+    flex-shrink: 0;
+  }
+
+  /* Cards */
+  .about-grid { display: grid; gap: 24px; margin-top: 32px; }
+
+  .about-card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-light);
+    padding: 28px 32px;
+    border-top: 3px solid var(--primary);
+  }
+
+  .about-card h2 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .about-card h2 .icon {
+    width: 32px;
+    height: 32px;
+    background: var(--primary-pale);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .about-card p {
+    color: var(--text-secondary);
+    line-height: 1.75;
+    font-size: .92rem;
+    margin-bottom: 14px;
+  }
+  .about-card p:last-child { margin-bottom: 0; }
+
+  .about-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .about-card ul li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: .9rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+  .about-card ul li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-bright);
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 16px;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 44px;
+    bottom: -14px;
+    width: 2px;
+    background: var(--primary-pale);
+  }
+  .step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 800;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .step-body { padding-bottom: 24px; }
+  .step-body h3 { font-size: .95rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .step-body p { font-size: .86rem; color: var(--muted); line-height: 1.6; }
+
+  /* Quote types */
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .type-grid { grid-template-columns: 1fr; } }
+  .type-item {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border-left: 4px solid;
+  }
+  .type-item.full { background: var(--full-bg); border-color: var(--full); }
+  .type-item.partial { background: var(--partial-bg); border-color: var(--partial); }
+  .type-item.paraphrase { background: var(--paraphrase-bg); border-color: var(--paraphrase); }
+  .type-item.allusion { background: var(--allusion-bg); border-color: var(--allusion); }
+  .type-item strong { font-size: .84rem; font-weight: 700; display: block; margin-bottom: 3px; }
+  .type-item p { font-size: .8rem; color: var(--muted); line-height: 1.5; margin: 0; }
+  .type-item.full strong { color: var(--full); }
+  .type-item.partial strong { color: var(--partial); }
+  .type-item.paraphrase strong { color: var(--paraphrase); }
+  .type-item.allusion strong { color: var(--allusion); }
+
+  /* Screenshot gallery */
+  .screenshot-grid { display: grid; gap: 20px; }
+  .screenshot-item { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+  .screenshot-item img { width: 100%; display: block; }
+  .screenshot-caption { padding: 10px 14px; background: var(--bg-secondary); font-size: .8rem; color: var(--muted); font-weight: 500; }
+
+  /* Author card */
+  .author-card {
+    background: var(--primary);
+    color: #fff;
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    margin-top: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .author-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 160px; height: 160px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+    transform: translate(40%, 40%);
+  }
+  .author-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+  }
+  .author-info h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 3px; color: #fff; }
+  .author-info .role { font-size: .84rem; color: rgba(255,255,255,.7); margin-bottom: 10px; }
+  .author-info p { font-size: .88rem; color: rgba(255,255,255,.8); line-height: 1.65; max-width: 540px; }
+  .author-info a { color: var(--accent-bright); text-decoration: none; }
+  .author-info a:hover { text-decoration: underline; }
+
+  /* Workshop banner */
+  .workshop-banner {
+    background: var(--primary-pale);
+    border: 1.5px solid #c9dcf5;
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-top: 12px;
+  }
+  .workshop-banner .ws-icon {
+    width: 40px; height: 40px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .workshop-banner .ws-info h4 { font-size: .9rem; font-weight: 700; color: var(--primary); margin-bottom: 3px; }
+  .workshop-banner .ws-info p { font-size: .82rem; color: var(--muted); line-height: 1.5; margin: 0; }
+  .workshop-banner .ws-info a { color: var(--primary-mid); }
+
+  /* API key note */
+  .api-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: rgba(249,190,0,.1);
+    border: 1.5px solid rgba(189,139,19,.3);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-top: 14px;
+  }
+  .api-note-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .api-note p { font-size: .86rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+  .api-note a { color: var(--primary-mid); font-weight: 600; text-decoration: none; }
+  .api-note a:hover { text-decoration: underline; }
+
+  /* Screenshots section */
+  .screenshots-container { margin-top: 12px; }
+  .screenshots-container .screenshot-item img { border-radius: 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a href="/" class="header-brand">
+    <img src="/static/logo.svg" alt="Logo" class="header-logo">
+    <div>
+      <div class="header-title">Scripture Detector</div>
+      <div class="header-subtitle">About</div>
+    </div>
+  </a>
+  <nav>
+    <a href="/">Sources</a>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/about" class="active">About</a>
+    <a href="/settings">Settings</a>
+  </nav>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <img src="/static/logo.svg" alt="Scripture Detector Logo" class="hero-logo">
+  <h1>Scripture Detector</h1>
+  <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in historical texts — powered by Google Gemini.</p>
+  <div class="hero-badges">
+    <span class="hero-badge"><span class="dot"></span>Powered by Google Gemini</span>
+    <span class="hero-badge"><span class="dot"></span>Yale University</span>
+    <span class="hero-badge"><span class="dot"></span>Open Source</span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="about-grid">
+
+    <!-- Author -->
+    <div class="author-card">
+      <div class="author-icon">👤</div>
+      <div class="author-info">
+        <h3>Dr. William J.B. Mattingly</h3>
+        <div class="role">Cultural Heritage Data Scientist · Yale University</div>
+        <p>
+          Scripture Detector was developed by Dr. William J.B. Mattingly, Cultural Heritage Data Scientist at Yale University. The application was built for the international workshop
+          <strong><a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank">Ruse of Reuse: Detecting Text-similarity with AI in Historical Sources</a></strong>
+          (March 5–6, 2026), hosted by the Austrian Academy of Sciences in Vienna.
+        </p>
+        <div class="workshop-banner" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);margin-top:14px">
+          <div class="ws-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div class="ws-info" style="color:rgba(255,255,255,.85)">
+            <h4 style="color:#f9be00">Ruse of Reuse Workshop · March 5–6, 2026</h4>
+            <p style="color:rgba(255,255,255,.7)">Austrian Academy of Sciences · PSK, Georg-Coch-Platz 2, 1010 Vienna<br>
+            Organised by the Digital Lab, Institute for Medieval Research, Austrian Academy of Sciences &amp; SOLEMNE, Radboud University</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- What it does -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        What is Scripture Detector?
+      </h2>
+      <p>
+        Scripture Detector is an AI-powered web application that analyzes historical and literary texts to find and classify all the ways biblical scripture appears within them. Given any piece of text, the application uses large language models to locate exact quotations, partial quotations, paraphrases, and allusions to specific Bible verses.
+      </p>
+      <p>
+        Each detected passage is linked to the exact verse(s) it references, displayed in context within the original document, and explored through interactive visualizations. The application is designed for scholars, students, and researchers working with texts that draw on the biblical tradition.
+      </p>
+    </div>
+
+    <!-- How it works -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </span>
+        How It Works
+      </h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Add a Source Text</h3>
+            <p>Paste any text you want to analyze — a sermon, a letter, a medieval chronicle, a theological treatise — into the Sources page. The text is stored locally in a SQLite database.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>AI Detection via Google Gemini</h3>
+            <p>Click "Process with AI" to send the text to Google Gemini with a carefully engineered prompt. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Only a free Gemini API key is required.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Span Location &amp; Annotation</h3>
+            <p>The app finds the exact character span of each detected quote within the original text, then stores annotations linking text spans to specific Bible verses using a full verse database.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Interactive Exploration</h3>
+            <p>View color-coded highlights directly in the text, click any passage to see the verse references and original Bible text side-by-side, edit or add annotations manually, and explore distribution charts by Bible book, testament, and quote type.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quote type classifications -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+        </span>
+        Quote Classification Types
+      </h2>
+      <p>The AI classifies each detected passage into one of four categories:</p>
+      <div class="type-grid">
+        <div class="type-item full">
+          <strong>Full</strong>
+          <p>A complete or near-complete verse quoted verbatim from the Bible.</p>
+        </div>
+        <div class="type-item partial">
+          <strong>Partial</strong>
+          <p>A recognizable portion of a verse, quoted with minor variation or truncation.</p>
+        </div>
+        <div class="type-item paraphrase">
+          <strong>Paraphrase</strong>
+          <p>Biblical content clearly restated in different words while preserving the meaning.</p>
+        </div>
+        <div class="type-item allusion">
+          <strong>Allusion</strong>
+          <p>A brief phrase, thematic echo, or indirect reference to a specific verse.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Technical requirements -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </span>
+        Technical Requirements
+      </h2>
+      <ul>
+        <li>Python 3.10+ with Flask — the entire backend runs as a lightweight local web application.</li>
+        <li>SQLite — all sources, annotations, and settings are stored in a local database with no external server required.</li>
+        <li>A full Bible verse database (35,000+ verses) is included and used for verse lookup and reference validation.</li>
+        <li>Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — this is the only external dependency and is free to obtain.</li>
+      </ul>
+      <div class="api-note">
+        <div class="api-note-icon">🔑</div>
+        <p>
+          <strong>Only a free Gemini API key is required.</strong> Get yours at
+          <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
+          and enter it in the <a href="/settings">Settings</a> page to start using the app immediately.
+          No cloud account, credit card, or additional setup is needed.
+        </p>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        Key Features
+      </h2>
+      <ul>
+        <li>Full-text AI analysis using Google Gemini with structured JSON output.</li>
+        <li>Color-coded in-text annotations with click-to-explore interactivity.</li>
+        <li>Selection-based re-analysis: highlight any passage and re-run AI detection on just that section.</li>
+        <li>Manual annotation editor with a Bible verse picker (book → chapter → verse).</li>
+        <li>Distribution charts showing which Bible books and testaments are most referenced.</li>
+        <li>Global analytics dashboard across all sources.</li>
+        <li>Support for both Gemini API (free tier) and Google Vertex AI.</li>
+        <li>Model switching — choose between available Gemini model versions.</li>
+        <li>Runs entirely locally — your texts never leave your machine except for the AI API call.</li>
+      </ul>
+    </div>
+
+    <!-- Screenshots -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </span>
+        Screenshots
+      </h2>
+      <div class="screenshots-container screenshot-grid">
+        <div class="screenshot-item">
+          <img src="/static/screenshots/sources.png" alt="Sources page" onerror="this.closest('.screenshot-item').style.display='none'">
+          <div class="screenshot-caption">Sources page — manage your text sources and see detection statistics at a glance</div>
+        </div>
+        <div class="screenshot-item">
+          <img src="/static/screenshots/viewer.png" alt="Text viewer" onerror="this.closest('.screenshot-item').style.display='none'">
+          <div class="screenshot-caption">Text viewer — color-coded annotations with side-by-side verse references</div>
+        </div>
+        <div class="screenshot-item">
+          <img src="/static/screenshots/dashboard.png" alt="Analytics dashboard" onerror="this.closest('.screenshot-item').style.display='none'">
+          <div class="screenshot-caption">Analytics dashboard — explore scripture distribution across all sources</div>
+        </div>
+        <div class="screenshot-item">
+          <img src="/static/screenshots/settings.png" alt="Settings page" onerror="this.closest('.screenshot-item').style.display='none'">
+          <div class="screenshot-caption">Settings — configure your Gemini API key and model selection</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align:center;padding:40px 0 24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border-light);margin-top:40px">
+    Developed by Dr. William J.B. Mattingly · Yale University · 2026<br>
+    Built for the <a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank" style="color:var(--primary-mid)">Ruse of Reuse</a> workshop, Austrian Academy of Sciences, Vienna · March 5–6, 2026
+  </div>
+</div>
+
+</body>
+</html>
