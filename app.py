@@ -24,8 +24,8 @@ BOOK_MAPPING_PATH = PROJECT_ROOT / "data" / "book_mapping.tsv"
 
 MODELS = [
     {"id": "gemini-3-pro-preview", "name": "Gemini 3 Pro Preview"},
-    {"id": "gemini-3-flash-preview", "name": "Gemini 3 Flash"},
-    {"id": "gemini-3.1-flash-preview", "name": "Gemini 3.1 Flash Preview"},
+    {"id": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview"},
+    {"id": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro Preview"},
     {"id": "gemini-3.1-flash-lite-preview", "name": "Gemini 3.1 Flash Lite Preview"},
 ]
 
