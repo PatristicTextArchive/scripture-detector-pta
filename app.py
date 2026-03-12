@@ -1,9 +1,22 @@
+import os
+import sys
+
+# ── parse custom flags BEFORE importing database (which reads env vars) ───────
+_argv = sys.argv[1:]
+if "--cache-db" in _argv:
+    os.environ["SCRIPTURE_DETECTOR_CACHE_DB"] = "1"
+# Remove our custom flags so Flask/werkzeug doesn't choke on them
+sys.argv = [sys.argv[0]] + [a for a in _argv if a != "--cache-db"]
+
 import csv
+import io
 import json
 import re
+import zipfile
+from datetime import date
 from pathlib import Path
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, Response
 from google import genai
 
 from database import (
@@ -15,6 +28,7 @@ from database import (
     get_book_distribution, get_quote_type_distribution, get_dashboard_data,
     search_sources,
 )
+from tei import source_to_tei, tei_to_source_data
 
 app = Flask(__name__)
 
@@ -373,6 +387,146 @@ def api_delete_source(source_id: int):
     return jsonify({"status": "ok"})
 
 
+# ── API: TEI Export (single source) ──────────────────────────────────────────
+
+@app.route("/api/sources/<int:source_id>/export/tei")
+def api_export_tei(source_id: int):
+    source = get_source(source_id)
+    if not source:
+        return jsonify({"error": "Source not found"}), 404
+
+    quotes      = get_quotes_for_source(source_id)
+    bm          = book_mapping()
+    book_names  = {code: info["name"] for code, info in bm.items()}
+    verses      = bible_verses()
+
+    annotations = []
+    for q in quotes:
+        refs = [r["reference"] for r in q["references"]]
+        annotations.append({
+            "id":          q["id"],
+            "span_start":  q["span_start"],
+            "span_end":    q["span_end"],
+            "quote_text":  q["quote_text"],
+            "quote_type":  q["quote_type"],
+            "refs":        refs,
+        })
+
+    xml_bytes = source_to_tei(source, annotations, book_names)
+    safe_name = re.sub(r"[^\w\-]", "_", source["name"])[:60]
+    filename  = f"{safe_name}.tei.xml"
+
+    return Response(
+        xml_bytes,
+        mimetype="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── API: ZIP Export (all sources) ────────────────────────────────────────────
+
+@app.route("/api/export/zip")
+def api_export_zip():
+    sources    = get_all_sources()
+    bm         = book_mapping()
+    book_names = {code: info["name"] for code, info in bm.items()}
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        manifest = {
+            "version":      "1.0",
+            "app":          "Scripture Detector",
+            "exported":     date.today().isoformat(),
+            "source_count": len(sources),
+            "sources":      [],
+        }
+
+        for idx, src in enumerate(sources, start=1):
+            full_source = get_source(src["id"])
+            quotes      = get_quotes_for_source(src["id"])
+
+            annotations = []
+            for q in quotes:
+                annotations.append({
+                    "id":         q["id"],
+                    "span_start": q["span_start"],
+                    "span_end":   q["span_end"],
+                    "quote_text": q["quote_text"],
+                    "quote_type": q["quote_type"],
+                    "refs":       [r["reference"] for r in q["references"]],
+                })
+
+            xml_bytes = source_to_tei(full_source, annotations, book_names)
+            safe_name = re.sub(r"[^\w\-]", "_", src["name"])[:60]
+            fname = f"sources/{idx:04d}_{safe_name}.tei.xml"
+            zf.writestr(fname, xml_bytes)
+            manifest["sources"].append({"filename": fname, "name": src["name"]})
+
+        zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+
+    buf.seek(0)
+    today = date.today().strftime("%Y%m%d")
+    return Response(
+        buf.read(),
+        mimetype="application/zip",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="scripture_detector_export_{today}.zip"'
+        },
+    )
+
+
+# ── API: ZIP Import ───────────────────────────────────────────────────────────
+
+@app.route("/api/import/zip", methods=["POST"])
+def api_import_zip():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    f = request.files["file"]
+    if not f.filename.lower().endswith(".zip"):
+        return jsonify({"error": "File must be a .zip archive"}), 400
+
+    imported = 0
+    errors   = []
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(f.read()), "r") as zf:
+            # Collect TEI files (from sources/ sub-directory or root)
+            tei_names = sorted(
+                name for name in zf.namelist()
+                if name.lower().endswith(".tei.xml") or name.lower().endswith(".xml")
+            )
+
+            for name in tei_names:
+                try:
+                    xml_bytes   = zf.read(name)
+                    src_data    = tei_to_source_data(xml_bytes)
+                    source_id   = create_source(src_data["name"], src_data["text"])
+                    for ann in src_data["annotations"]:
+                        if ann.get("refs"):
+                            add_quote(
+                                source_id  = source_id,
+                                span_start = ann["span_start"],
+                                span_end   = ann["span_end"],
+                                quote_text = ann["quote_text"],
+                                quote_type = ann["quote_type"],
+                                references = ann["refs"],
+                            )
+                    imported += 1
+                except Exception as exc:
+                    errors.append({"file": name, "error": str(exc)})
+
+    except zipfile.BadZipFile:
+        return jsonify({"error": "Invalid or corrupt ZIP file"}), 400
+
+    return jsonify({
+        "status":   "ok",
+        "imported": imported,
+        "errors":   errors,
+    })
+
+
 # ── API: Processing ──────────────────────────────────────────────────────────
 
 @app.route("/api/sources/<int:source_id>/process", methods=["POST"])
@@ -565,4 +719,10 @@ def api_bible_verses_list(book_code: str, chapter: int):
 init_db()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    _cache_db = bool(os.environ.get("SCRIPTURE_DETECTOR_CACHE_DB"))
+    _host  = os.environ.get("SD_HOST", "127.0.0.1")
+    _port  = int(os.environ.get("SD_PORT", "5001"))
+    # Disable the reloader in cache-db mode: the reloader forks the process,
+    # which would create a fresh in-memory database and lose all data.
+    _debug = not _cache_db
+    app.run(debug=_debug, port=_port, host=_host, use_reloader=_debug)

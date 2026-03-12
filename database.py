@@ -1,12 +1,39 @@
+import os
 import sqlite3
 import re
+import threading
 from pathlib import Path
 from contextlib import contextmanager
 
-DB_PATH = Path(__file__).resolve().parent / "scripture_detector.db"
+# SD_DB_DIR lets Docker users put the database in a mounted volume.
+_db_dir = os.environ.get("SD_DB_DIR")
+DB_PATH = (
+    Path(_db_dir) / "scripture_detector.db"
+    if _db_dir
+    else Path(__file__).resolve().parent / "scripture_detector.db"
+)
+
+# ── cache-db (in-memory) mode ─────────────────────────────────────────────────
+# Enabled by setting env var SCRIPTURE_DETECTOR_CACHE_DB=1 before this module
+# is imported.  app.py sets this when --cache-db flag is present.
+_CACHE_MODE: bool = os.environ.get("SCRIPTURE_DETECTOR_CACHE_DB", "") in ("1", "true", "yes")
+_cache_conn: sqlite3.Connection | None = None
+_cache_lock: threading.Lock = threading.Lock()
 
 
-def get_connection():
+def _make_cache_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def get_connection() -> sqlite3.Connection:
+    global _cache_conn
+    if _CACHE_MODE:
+        if _cache_conn is None:
+            _cache_conn = _make_cache_connection()
+        return _cache_conn
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -15,15 +42,26 @@ def get_connection():
 
 @contextmanager
 def get_db():
-    conn = get_connection()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    if _CACHE_MODE:
+        # Serialise access to the single in-memory connection.
+        with _cache_lock:
+            conn = get_connection()
+            try:
+                yield conn
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+    else:
+        conn = get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
 
 def init_db():

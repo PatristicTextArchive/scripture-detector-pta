@@ -318,6 +318,17 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Source
     </button>
+    <button class="btn btn-ghost" onclick="importZip()" title="Import sources from a ZIP archive exported by Scripture Detector">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import ZIP
+    </button>
+    <a class="btn btn-ghost" id="export-zip-btn" href="/api/export/zip" download
+       title="Export all sources as TEI XML inside a ZIP archive">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export ZIP
+    </a>
+    <!-- hidden file input for ZIP import -->
+    <input type="file" id="zip-file-input" accept=".zip" style="display:none" onchange="handleZipUpload(this)">
     <div class="summary" id="summary-line"></div>
   </div>
 
@@ -969,6 +980,40 @@ function clearAllFilters() {
   renderSources(null);
   document.getElementById('active-chips').innerHTML = '';
   document.getElementById('results-info').style.display = 'none';
+}
+
+// ── ZIP Import ───────────────────────────────────────────────────────────────
+function importZip() {
+  document.getElementById('zip-file-input').click();
+}
+
+function handleZipUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';   // reset so same file can be re-selected
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Show a toast while importing
+  const prog = document.createElement('div');
+  prog.className = 'toast toast-ok';
+  prog.style.opacity = '1';
+  prog.textContent = `Importing ${file.name}…`;
+  document.body.appendChild(prog);
+
+  fetch('/api/import/zip', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      prog.remove();
+      if (data.error) { showToast(data.error, false); return; }
+      const errMsg = data.errors && data.errors.length
+        ? `  (${data.errors.length} file${data.errors.length !== 1 ? 's' : ''} failed)`
+        : '';
+      showToast(`Imported ${data.imported} source${data.imported !== 1 ? 's' : ''}${errMsg}`, true);
+      loadAll();
+    })
+    .catch(e => { prog.remove(); showToast('Import error: ' + e.message, false); });
 }
 
 // ── Initial load ─────────────────────────────────────────────────────────────
