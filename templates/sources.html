@@ -7,77 +7,286 @@
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
 <style>
-  .toolbar { display: flex; gap: 12px; margin-bottom: 28px; align-items: center; flex-wrap: wrap; }
-  .toolbar .summary { font-size: .84rem; color: var(--muted); margin-left: auto; }
-  .toolbar .summary strong { color: var(--text); font-weight: 700; }
+/* ── Toolbar ────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex; gap: 12px; margin-bottom: 16px;
+  align-items: center; flex-wrap: wrap;
+}
+.toolbar .summary {
+  font-size: .84rem; color: var(--muted); margin-left: auto;
+}
+.toolbar .summary strong { color: var(--text); font-weight: 700; }
 
-  .source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; }
+/* ── Search Panel ───────────────────────────────────────────────────── */
+.search-panel {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
 
-  .source-card {
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    border: 1.5px solid var(--border-light);
-    padding: 24px;
-    transition: all .25s cubic-bezier(.4,0,.2,1);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    cursor: pointer;
-  }
-  .source-card:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-3px);
-    border-color: var(--primary-light);
-  }
-  .source-card .sc-header { display: flex; align-items: flex-start; gap: 12px; }
-  .source-card .sc-name {
-    font-size: 1.05rem;
-    font-weight: 700;
-    flex: 1;
-    line-height: 1.35;
-    color: var(--text);
-  }
-  .source-card .sc-date {
-    font-size: .7rem;
-    color: var(--muted);
-    white-space: nowrap;
-    background: var(--bg-secondary);
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-weight: 500;
-  }
-  .source-card .sc-stats { display: flex; gap: 24px; }
-  .source-card .sc-stat { display: flex; flex-direction: column; }
-  .source-card .sc-stat-val { font-size: 1.4rem; font-weight: 800; }
-  .source-card .sc-stat-lbl {
-    font-size: .66rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    font-weight: 600;
-  }
-  .sc-stat-primary .sc-stat-val { color: var(--primary); }
-  .sc-stat-accent .sc-stat-val { color: var(--accent); }
+.search-top { display: flex; gap: 10px; align-items: center; }
 
-  .sc-books {
-    font-size: .78rem;
-    color: var(--muted);
-    line-height: 1.5;
-    padding: 8px 12px;
-    background: var(--bg);
-    border-radius: var(--radius-sm);
-  }
-  .sc-books strong { color: var(--text-secondary); }
+.search-input-wrap { flex: 1; position: relative; }
+.search-input-wrap svg {
+  position: absolute; left: 11px; top: 50%;
+  transform: translateY(-50%); color: var(--muted); pointer-events: none;
+}
+.search-input {
+  width: 100%; padding: 9px 14px 9px 38px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-size: .9rem; font-family: inherit; color: var(--text);
+  transition: var(--transition);
+}
+.search-input:focus {
+  outline: none; border-color: var(--primary-mid);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+.search-input.has-value { border-color: var(--primary-mid); }
 
-  .sc-footer {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    margin-top: auto;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-light);
-  }
+.search-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-size: 1rem; line-height: 1; padding: 2px 4px; border-radius: 3px;
+  display: none;
+}
+.search-clear:hover { color: var(--red); }
+
+.adv-toggle {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface);
+  cursor: pointer; font-size: .84rem; font-weight: 600;
+  color: var(--muted); white-space: nowrap; font-family: inherit;
+  transition: var(--transition);
+}
+.adv-toggle:hover { border-color: var(--primary-mid); color: var(--primary); }
+.adv-toggle.active {
+  border-color: var(--primary); color: var(--primary);
+  background: var(--primary-pale);
+}
+.adv-toggle .badge {
+  background: var(--primary); color: #fff;
+  border-radius: 10px; font-size: .68rem; font-weight: 800;
+  padding: 1px 6px; display: none;
+}
+.adv-toggle.has-filters .badge { display: inline; }
+
+/* ── Advanced Panel ─────────────────────────────────────────────────── */
+.adv-panel {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+  display: none;
+}
+.adv-panel.visible { display: block; }
+
+.adv-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 12px; flex-wrap: wrap;
+}
+.adv-header label {
+  font-size: .78rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+}
+
+/* Logic toggle pill */
+.logic-toggle {
+  display: inline-flex; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.logic-btn {
+  padding: 5px 14px; border: none; background: transparent;
+  cursor: pointer; font-size: .8rem; font-weight: 700;
+  color: var(--muted); font-family: inherit; transition: var(--transition);
+}
+.logic-btn.active { background: var(--primary); color: #fff; }
+
+/* Filter rows */
+.filter-rows { display: flex; flex-direction: column; gap: 8px; }
+
+.filter-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  position: relative;
+}
+
+.filter-connector {
+  font-size: .7rem; font-weight: 800; color: var(--primary);
+  text-transform: uppercase; letter-spacing: .08em;
+  min-width: 28px; text-align: center;
+}
+
+.filter-select, .filter-input {
+  padding: 6px 10px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); font-size: .84rem;
+  font-family: inherit; color: var(--text); background: var(--surface);
+  transition: var(--transition);
+}
+.filter-select:focus, .filter-input:focus {
+  outline: none; border-color: var(--primary-mid);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+.filter-select:disabled { opacity: .4; }
+.filter-type { min-width: 130px; }
+.filter-book { min-width: 150px; }
+.filter-chapter { width: 80px; }
+.filter-verse { width: 80px; }
+.filter-text { flex: 1; min-width: 160px; }
+
+.filter-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 1.1rem; line-height: 1;
+  padding: 2px 6px; border-radius: 4px; margin-left: auto;
+  transition: var(--transition);
+}
+.filter-remove:hover { color: var(--red); background: rgba(198,40,40,.08); }
+
+.add-filter-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 8px; padding: 7px 14px;
+  border: 1.5px dashed var(--border); border-radius: var(--radius-sm);
+  background: transparent; cursor: pointer; font-size: .82rem;
+  font-weight: 600; color: var(--muted); font-family: inherit;
+  transition: var(--transition);
+}
+.add-filter-btn:hover {
+  border-color: var(--primary-mid); color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+/* Active filters summary chip strip */
+.active-chips {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--primary-pale); color: var(--primary);
+  border: 1px solid #c9dcf5; border-radius: 20px;
+  font-size: .76rem; font-weight: 600; padding: 3px 10px;
+}
+.chip .chip-x {
+  background: none; border: none; cursor: pointer;
+  color: var(--primary-mid); font-size: .9rem; line-height: 1;
+  padding: 0; margin-left: 1px;
+}
+.chip .chip-x:hover { color: var(--red); }
+
+/* ── Source Grid ────────────────────────────────────────────────────── */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.source-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid var(--border-light);
+  padding: 24px;
+  transition: all .22s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column; gap: 14px; cursor: pointer;
+}
+.source-card:hover {
+  box-shadow: var(--shadow-lg); transform: translateY(-3px);
+  border-color: var(--primary-light);
+}
+.source-card.search-match { border-color: #c9dcf5; }
+
+.sc-header { display: flex; align-items: flex-start; gap: 12px; }
+.sc-name { font-size: 1.05rem; font-weight: 700; flex: 1; line-height: 1.35; }
+.sc-date {
+  font-size: .7rem; color: var(--muted); white-space: nowrap;
+  background: var(--bg-secondary); padding: 3px 8px; border-radius: 4px;
+}
+.sc-stats { display: flex; gap: 24px; }
+.sc-stat { display: flex; flex-direction: column; }
+.sc-stat-val { font-size: 1.4rem; font-weight: 800; }
+.sc-stat-lbl {
+  font-size: .66rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; font-weight: 600;
+}
+.sc-stat-primary .sc-stat-val { color: var(--primary); }
+.sc-stat-accent .sc-stat-val { color: var(--accent); }
+
+.sc-books {
+  font-size: .78rem; color: var(--muted); line-height: 1.5;
+  padding: 8px 12px; background: var(--bg); border-radius: var(--radius-sm);
+}
+
+.sc-footer {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: auto; padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+/* ── Match Evidence ─────────────────────────────────────────────────── */
+.match-evidence {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid #c9dcf5;
+}
+.match-evidence-header {
+  font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--primary);
+  padding: 5px 10px; background: var(--primary-pale);
+  display: flex; align-items: center; gap: 5px;
+}
+.match-item {
+  padding: 8px 10px; font-size: .8rem; border-top: 1px solid #dce8f8;
+  background: var(--surface);
+}
+.match-item:first-child { border-top: none; }
+
+.match-text-snippet {
+  color: var(--text-secondary); line-height: 1.5;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.match-text-snippet mark {
+  background: #fff3cd; color: #6a4000;
+  border-radius: 2px; padding: 0 2px; font-weight: 700;
+}
+
+.match-ref-row {
+  display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap;
+}
+.match-ref-badge {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: .72rem; font-weight: 700;
+  background: var(--bg-secondary); color: var(--primary);
+  padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+  border: 1px solid var(--border-light);
+}
+.match-ref-quote {
+  color: var(--muted); font-style: italic;
+  flex: 1; min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+}
+
+.no-results {
+  grid-column: 1/-1; text-align: center;
+  padding: 60px 20px; color: var(--muted);
+}
+.no-results h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+.no-results p { font-size: .9rem; }
+
+.results-info {
+  font-size: .82rem; color: var(--muted); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.results-info strong { color: var(--text); }
+.results-info .clear-link {
+  color: var(--primary-mid); cursor: pointer; text-decoration: underline;
+  font-size: .8rem; margin-left: 4px;
+}
+
+/* searching state */
+.search-panel.searching .search-input { border-color: var(--primary-mid); }
 </style>
 </head>
 <body>
@@ -87,7 +296,7 @@
     <img src="/static/logo.svg" alt="Logo" class="header-logo">
     <div>
       <div class="header-title">Scripture Detector</div>
-      <div class="header-subtitle">Scriptural Quote Detection & Analysis</div>
+      <div class="header-subtitle">Scriptural Quote Detection &amp; Analysis</div>
     </div>
   </a>
   <nav>
@@ -98,17 +307,79 @@
   </nav>
 </div>
 
-<div class="container" id="app">
-  <div class="loading"><div class="spinner"></div>Loading...</div>
+<div class="container">
+
+  <!-- Toolbar -->
+  <div class="toolbar" id="toolbar">
+    <button class="btn btn-primary" onclick="openModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Source
+    </button>
+    <div class="summary" id="summary-line"></div>
+  </div>
+
+  <!-- Search panel -->
+  <div class="search-panel" id="search-panel">
+    <div class="search-top">
+      <!-- Simple text search -->
+      <div class="search-input-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="text-search" class="search-input" type="text"
+               placeholder="Search source text content…" autocomplete="off"
+               oninput="onTextInput()" onkeydown="if(event.key==='Escape')clearText()">
+        <button class="search-clear" id="text-clear" onclick="clearText()" title="Clear">×</button>
+      </div>
+      <!-- Advanced toggle -->
+      <button class="adv-toggle" id="adv-toggle" onclick="toggleAdv()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+        Advanced
+        <span class="badge" id="adv-badge">0</span>
+      </button>
+    </div>
+
+    <!-- Advanced filter builder -->
+    <div class="adv-panel" id="adv-panel">
+      <div class="adv-header">
+        <label>Combine filters with:</label>
+        <div class="logic-toggle">
+          <button class="logic-btn active" id="logic-and" onclick="setLogic('AND')">AND</button>
+          <button class="logic-btn" id="logic-or" onclick="setLogic('OR')">OR</button>
+        </div>
+        <span style="font-size:.78rem;color:var(--muted)" id="logic-desc">
+          Source must match <strong>all</strong> filters
+        </span>
+      </div>
+      <div class="filter-rows" id="filter-rows"></div>
+      <button class="add-filter-btn" onclick="addFilterRow()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Filter
+      </button>
+    </div>
+  </div>
+
+  <!-- Active filter chips (shown when filters are active) -->
+  <div class="active-chips" id="active-chips"></div>
+
+  <!-- Results info bar (shown during search) -->
+  <div class="results-info" id="results-info" style="display:none"></div>
+
+  <!-- Source grid -->
+  <div id="source-grid-wrap">
+    <div style="text-align:center;padding:60px;color:var(--muted)">
+      <div class="spinner" style="margin:0 auto 12px"></div>Loading…
+    </div>
+  </div>
+
 </div>
 
+<!-- Add source modal -->
 <div class="modal-overlay" id="add-modal">
   <div class="modal">
     <h2>Add New Source</h2>
     <label for="src-name">Source Name</label>
     <input type="text" id="src-name" placeholder="e.g. Augustine, Confessions Book I">
     <label for="src-text">Text</label>
-    <textarea id="src-text" placeholder="Paste the text to analyze here..."></textarea>
+    <textarea id="src-text" placeholder="Paste the text to analyze here…"></textarea>
     <div class="actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" id="save-src-btn" onclick="saveSource()">Add Source</button>
@@ -117,10 +388,18 @@
 </div>
 
 <script>
-const app = document.getElementById('app');
-const addModal = document.getElementById('add-modal');
-let RAW = null;
+// ── State ────────────────────────────────────────────────────────────────────
+let RAW = null;           // full dashboard data
+let bibleBooks = null;    // [{code, name, testament}]
+let advOpen = false;
+let currentLogic = 'AND';
+let filterIdSeq = 0;
+let filters = [];         // [{id, type, value, book, chapter}]
+let searchTimer = null;
+let isSearching = false;
 
+// ── Utilities ────────────────────────────────────────────────────────────────
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function showToast(msg, ok) {
   const el = document.createElement('div');
   el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
@@ -128,7 +407,9 @@ function showToast(msg, ok) {
   document.body.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
 }
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+const addModal = document.getElementById('add-modal');
 function openModal() { addModal.classList.add('active'); document.getElementById('src-name').focus(); }
 function closeModal() { addModal.classList.remove('active'); }
 
@@ -137,10 +418,9 @@ function saveSource() {
   const text = document.getElementById('src-text').value.trim();
   if (!name || !text) { showToast('Name and text are required', false); return; }
   const btn = document.getElementById('save-src-btn');
-  btn.disabled = true; btn.textContent = 'Saving...';
+  btn.disabled = true; btn.textContent = 'Saving…';
   fetch('/api/sources', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({name, text}),
   })
   .then(r => r.json())
@@ -150,7 +430,7 @@ function saveSource() {
     document.getElementById('src-name').value = '';
     document.getElementById('src-text').value = '';
     showToast('Source added!', true);
-    loadData();
+    loadAll();
   })
   .catch(e => showToast('Error: ' + e.message, false))
   .finally(() => { btn.disabled = false; btn.textContent = 'Add Source'; });
@@ -160,22 +440,385 @@ function deleteSource(e, id, name) {
   e.stopPropagation();
   if (!confirm(`Delete "${name}" and all its quotes?`)) return;
   fetch(`/api/sources/${id}`, {method: 'DELETE'})
-    .then(() => { showToast('Source deleted', true); loadData(); })
+    .then(() => { showToast('Source deleted', true); loadAll(); })
     .catch(e => showToast('Error: ' + e.message, false));
 }
 
-function render() {
-  if (!RAW) return;
-  const {source_count, quote_count, reference_count, sources} = RAW;
+// ── Text search ──────────────────────────────────────────────────────────────
+function onTextInput() {
+  const val = document.getElementById('text-search').value;
+  document.getElementById('text-clear').style.display = val ? 'block' : 'none';
+  document.getElementById('text-search').classList.toggle('has-value', !!val);
+  scheduleSearch();
+}
+function clearText() {
+  document.getElementById('text-search').value = '';
+  document.getElementById('text-clear').style.display = 'none';
+  document.getElementById('text-search').classList.remove('has-value');
+  scheduleSearch();
+}
 
-  if (source_count === 0) {
-    app.innerHTML = `
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Source
-        </button>
-      </div>
+// ── Advanced toggle ──────────────────────────────────────────────────────────
+function toggleAdv() {
+  advOpen = !advOpen;
+  document.getElementById('adv-panel').classList.toggle('visible', advOpen);
+  document.getElementById('adv-toggle').classList.toggle('active', advOpen);
+}
+
+function setLogic(l) {
+  currentLogic = l;
+  document.getElementById('logic-and').classList.toggle('active', l === 'AND');
+  document.getElementById('logic-or').classList.toggle('active',  l === 'OR');
+  document.getElementById('logic-desc').innerHTML =
+    l === 'AND'
+      ? 'Source must match <strong>all</strong> filters'
+      : 'Source must match <strong>any</strong> filter';
+  scheduleSearch();
+}
+
+// ── Filter rows ──────────────────────────────────────────────────────────────
+function loadBibleBooks() {
+  if (bibleBooks) return Promise.resolve();
+  return fetch('/api/bible/books').then(r => r.json()).then(books => {
+    bibleBooks = books;
+  });
+}
+
+function addFilterRow(preset) {
+  loadBibleBooks().then(() => {
+    const id = ++filterIdSeq;
+    const type = preset?.type || 'book';
+    filters.push({ id, type, value: preset?.value || '', book: '', chapter: '' });
+    renderFilterRows();
+    // If preset, update UI after render
+    if (preset) applyPreset(id, preset);
+    scheduleSearch();
+  });
+}
+
+function applyPreset(id, preset) {
+  const row = document.querySelector(`.filter-row[data-id="${id}"]`);
+  if (!row) return;
+  if (preset.book) {
+    const bSel = row.querySelector('.filter-book');
+    if (bSel) { bSel.value = preset.book; onBookChange(id); }
+  }
+}
+
+function removeFilterRow(id) {
+  filters = filters.filter(f => f.id !== id);
+  renderFilterRows();
+  updateAdvBadge();
+  scheduleSearch();
+}
+
+function renderFilterRows() {
+  const container = document.getElementById('filter-rows');
+  container.innerHTML = '';
+
+  filters.forEach((f, idx) => {
+    const row = document.createElement('div');
+    row.className = 'filter-row';
+    row.dataset.id = f.id;
+
+    // connector
+    if (idx > 0) {
+      const conn = document.createElement('span');
+      conn.className = 'filter-connector';
+      conn.textContent = currentLogic;
+      row.appendChild(conn);
+    }
+
+    // type selector
+    const typeSel = document.createElement('select');
+    typeSel.className = 'filter-select filter-type';
+    [
+      ['book',    'Bible Book'],
+      ['chapter', 'Chapter'],
+      ['verse',   'Verse'],
+      ['text',    'Text Content'],
+    ].forEach(([val, label]) => {
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = label;
+      if (val === f.type) opt.selected = true;
+      typeSel.appendChild(opt);
+    });
+    typeSel.addEventListener('change', () => {
+      const fi = filters.find(x => x.id === f.id);
+      if (fi) { fi.type = typeSel.value; fi.book = ''; fi.chapter = ''; fi.value = ''; }
+      renderFilterRows();
+      scheduleSearch();
+    });
+    row.appendChild(typeSel);
+
+    if (f.type === 'text') {
+      // text input
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.className = 'filter-select filter-text';
+      inp.placeholder = 'Search text…'; inp.value = f.value;
+      inp.addEventListener('input', () => {
+        const fi = filters.find(x => x.id === f.id);
+        if (fi) fi.value = inp.value;
+        scheduleSearch();
+      });
+      row.appendChild(inp);
+    } else {
+      // book dropdown
+      const bookSel = document.createElement('select');
+      bookSel.className = 'filter-select filter-book';
+      const defOpt = document.createElement('option');
+      defOpt.value = ''; defOpt.textContent = 'Select book…';
+      bookSel.appendChild(defOpt);
+      (bibleBooks || []).forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.code;
+        opt.textContent = b.name;
+        if (b.code === f.book) opt.selected = true;
+        bookSel.appendChild(opt);
+      });
+      bookSel.addEventListener('change', () => {
+        const fi = filters.find(x => x.id === f.id);
+        if (fi) { fi.book = bookSel.value; fi.chapter = ''; fi.value = fi.book; }
+        onBookChange(f.id);
+        scheduleSearch();
+      });
+      row.appendChild(bookSel);
+
+      if (f.type === 'chapter' || f.type === 'verse') {
+        // chapter dropdown
+        const chSel = document.createElement('select');
+        chSel.className = 'filter-select filter-chapter';
+        chSel.disabled = !f.book;
+        const chDef = document.createElement('option');
+        chDef.value = ''; chDef.textContent = 'Ch.';
+        chSel.appendChild(chDef);
+        chSel.dataset.book = f.book;
+        chSel.addEventListener('change', () => {
+          const fi = filters.find(x => x.id === f.id);
+          if (fi) {
+            fi.chapter = chSel.value;
+            fi.value = fi.chapter ? `${fi.book}_${fi.chapter}` : fi.book;
+          }
+          if (f.type === 'verse') onChapterChange(f.id);
+          scheduleSearch();
+        });
+        row.appendChild(chSel);
+        row.dataset.chSel = true;
+
+        // load chapters if book already selected
+        if (f.book) {
+          fetch(`/api/bible/${f.book}/chapters`).then(r => r.json()).then(chs => {
+            chs.forEach(ch => {
+              const opt = document.createElement('option');
+              opt.value = ch; opt.textContent = ch;
+              if (String(ch) === String(f.chapter)) opt.selected = true;
+              chSel.appendChild(opt);
+            });
+            chSel.disabled = false;
+          });
+        }
+
+        if (f.type === 'verse') {
+          // verse number input
+          const vInp = document.createElement('input');
+          vInp.type = 'number'; vInp.min = '1';
+          vInp.className = 'filter-select filter-verse';
+          vInp.placeholder = 'Verse #';
+          vInp.disabled = !f.chapter;
+          if (f.verse) vInp.value = f.verse;
+          vInp.addEventListener('input', () => {
+            const fi = filters.find(x => x.id === f.id);
+            if (fi) {
+              fi.verse = vInp.value;
+              fi.value = fi.chapter && vInp.value
+                ? `${fi.book}_${fi.chapter}:${vInp.value}`
+                : (fi.chapter ? `${fi.book}_${fi.chapter}` : fi.book);
+            }
+            scheduleSearch();
+          });
+          row.appendChild(vInp);
+        }
+      }
+    }
+
+    // remove button
+    const rem = document.createElement('button');
+    rem.className = 'filter-remove'; rem.title = 'Remove filter';
+    rem.innerHTML = '&times;';
+    rem.onclick = () => removeFilterRow(f.id);
+    row.appendChild(rem);
+    container.appendChild(row);
+  });
+
+  updateAdvBadge();
+  renderChips();
+}
+
+function onBookChange(fid) {
+  const fi = filters.find(x => x.id === fid);
+  if (!fi) return;
+  fi.chapter = ''; fi.verse = '';
+  fi.value = fi.book;
+  const row = document.querySelector(`.filter-row[data-id="${fid}"]`);
+  if (!row) return;
+  const chSel = row.querySelector('.filter-chapter');
+  const vInp  = row.querySelector('.filter-verse');
+  if (chSel) {
+    chSel.innerHTML = '<option value="">Ch.</option>';
+    chSel.disabled = !fi.book;
+    if (fi.book) {
+      fetch(`/api/bible/${fi.book}/chapters`).then(r => r.json()).then(chs => {
+        chs.forEach(ch => {
+          const opt = document.createElement('option');
+          opt.value = ch; opt.textContent = ch;
+          chSel.appendChild(opt);
+        });
+      });
+    }
+  }
+  if (vInp) { vInp.value = ''; vInp.disabled = true; }
+}
+
+function onChapterChange(fid) {
+  const fi = filters.find(x => x.id === fid);
+  if (!fi) return;
+  const row = document.querySelector(`.filter-row[data-id="${fid}"]`);
+  if (!row) return;
+  const vInp = row.querySelector('.filter-verse');
+  if (vInp) { vInp.value = ''; vInp.disabled = !fi.chapter; }
+}
+
+function updateAdvBadge() {
+  const active = filters.filter(f => f.value).length;
+  const badge = document.getElementById('adv-badge');
+  badge.textContent = active;
+  document.getElementById('adv-toggle').classList.toggle('has-filters', active > 0);
+}
+
+// ── Chip strip (active filter summary) ──────────────────────────────────────
+function renderChips() {
+  const container = document.getElementById('active-chips');
+  const textVal = document.getElementById('text-search').value.trim();
+  const activeFilters = filters.filter(f => f.value);
+  container.innerHTML = '';
+
+  if (textVal) {
+    const chip = makeChip(`Text: "${textVal}"`, clearText);
+    container.appendChild(chip);
+  }
+  activeFilters.forEach(f => {
+    let label = '';
+    if (f.type === 'book') label = `Book: ${bookName(f.book)}`;
+    else if (f.type === 'chapter') label = `Chapter: ${bookName(f.book)} ${f.chapter}`;
+    else if (f.type === 'verse') label = `Verse: ${f.value}`;
+    else if (f.type === 'text') label = `Text: "${f.value}"`;
+    if (label) {
+      const chip = makeChip(label, () => removeFilterRow(f.id));
+      container.appendChild(chip);
+    }
+  });
+}
+
+function makeChip(label, onRemove) {
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.innerHTML = `${esc(label)} <button class="chip-x" title="Remove">&times;</button>`;
+  chip.querySelector('.chip-x').onclick = onRemove;
+  return chip;
+}
+
+function bookName(code) {
+  if (!bibleBooks) return code;
+  const b = bibleBooks.find(x => x.code === code);
+  return b ? b.name : code;
+}
+
+// ── Search scheduling ────────────────────────────────────────────────────────
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  renderChips();
+  searchTimer = setTimeout(executeSearch, 320);
+}
+
+function executeSearch() {
+  const textVal = document.getElementById('text-search').value.trim();
+  const structFilters = filters.filter(f => f.value.trim());
+
+  // If nothing active, show all sources from RAW
+  if (!textVal && structFilters.length === 0) {
+    renderSources(null);
+    return;
+  }
+
+  const allFilters = [];
+  if (textVal) allFilters.push({ type: 'text', value: textVal });
+  structFilters.forEach(f => allFilters.push({ type: f.type, value: f.value }));
+
+  isSearching = true;
+  document.getElementById('search-panel').classList.add('searching');
+
+  fetch('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filters: allFilters, logic: currentLogic }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    isSearching = false;
+    document.getElementById('search-panel').classList.remove('searching');
+    renderSources(data);
+  })
+  .catch(e => {
+    isSearching = false;
+    document.getElementById('search-panel').classList.remove('searching');
+    showToast('Search error: ' + e.message, false);
+  });
+}
+
+// ── Rendering ────────────────────────────────────────────────────────────────
+function renderSources(searchResult) {
+  const wrap = document.getElementById('source-grid-wrap');
+  const infoBar = document.getElementById('results-info');
+
+  // Determine what to show
+  let sources, isFiltered, totalCount;
+  if (searchResult === null) {
+    // Show all from dashboard
+    if (!RAW) return;
+    sources = RAW.sources.map(s => ({
+      ...s,
+      type_distribution: s.type_distribution || {},
+      book_distribution: s.book_distribution || [],
+      match_evidence: null,
+    }));
+    isFiltered = false;
+    totalCount = RAW.source_count;
+
+    infoBar.style.display = 'none';
+    document.getElementById('summary-line').innerHTML =
+      `<strong>${RAW.source_count}</strong> source${RAW.source_count !== 1 ? 's' : ''}
+       &nbsp;&middot;&nbsp;
+       <strong>${RAW.quote_count}</strong> quote${RAW.quote_count !== 1 ? 's' : ''}
+       &nbsp;&middot;&nbsp;
+       <strong>${RAW.reference_count}</strong> reference${RAW.reference_count !== 1 ? 's' : ''}`;
+  } else {
+    sources = searchResult.results;
+    isFiltered = true;
+    totalCount = RAW ? RAW.source_count : '?';
+
+    const n = searchResult.total;
+    infoBar.style.display = 'flex';
+    infoBar.innerHTML = `
+      Showing <strong>${n}</strong> of <strong>${totalCount}</strong> source${totalCount !== 1 ? 's' : ''}
+      matching your ${currentLogic === 'AND' ? 'AND' : 'OR'} filters
+      <span class="clear-link" onclick="clearAllFilters()">Clear all filters</span>`;
+    document.getElementById('summary-line').innerHTML =
+      `<strong>${n}</strong> result${n !== 1 ? 's' : ''}`;
+  }
+
+  // Empty state
+  if (sources.length === 0 && !isFiltered) {
+    wrap.innerHTML = `
       <div class="empty-state">
         <img src="/static/logo.svg" alt="" class="empty-icon">
         <h2>No sources yet</h2>
@@ -188,37 +831,62 @@ function render() {
     return;
   }
 
-  app.innerHTML = `
-    <div class="toolbar">
-      <button class="btn btn-primary" onclick="openModal()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Source
-      </button>
-      <div class="summary">
-        <strong>${source_count}</strong> source${source_count !== 1 ? 's' : ''}
-        &nbsp;&middot;&nbsp;
-        <strong>${quote_count}</strong> quote${quote_count !== 1 ? 's' : ''}
-        &nbsp;&middot;&nbsp;
-        <strong>${reference_count}</strong> reference${reference_count !== 1 ? 's' : ''}
-      </div>
-    </div>
-    <div class="source-grid" id="source-grid"></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'source-grid';
 
-  const grid = document.getElementById('source-grid');
-  (sources || []).forEach(s => {
+  if (isFiltered && sources.length === 0) {
+    grid.innerHTML = `
+      <div class="no-results">
+        <h3>No matching sources</h3>
+        <p>Try adjusting your filters or switching from AND to OR logic.</p>
+      </div>`;
+    wrap.innerHTML = ''; wrap.appendChild(grid); return;
+  }
+
+  sources.forEach(s => {
     const td = s.type_distribution || {};
     const bd = s.book_distribution || [];
     const total = (td.full||0) + (td.partial||0) + (td.paraphrase||0) + (td.allusion||0);
-    const p = v => total ? ((v/total)*100).toFixed(0) : 0;
-
+    const p = v => total ? ((v / total) * 100).toFixed(0) : 0;
     const topBooks = bd.slice(0, 4).map(b => b.book_name || b.book_code);
     const booksText = topBooks.length > 0
       ? topBooks.join(', ') + (bd.length > 4 ? ` +${bd.length - 4} more` : '')
       : 'No books referenced yet';
 
     const card = document.createElement('div');
-    card.className = 'source-card';
+    card.className = 'source-card' + (isFiltered ? ' search-match' : '');
     card.onclick = () => window.location.href = '/viewer/' + s.id;
+
+    // Match evidence HTML
+    let evidenceHtml = '';
+    if (s.match_evidence && s.match_evidence.length > 0) {
+      const items = s.match_evidence.map(ev => {
+        if (ev.kind === 'text') {
+          const hl = highlightMatch(ev.snippet, ev.query);
+          return `<div class="match-item">
+            <div class="match-text-snippet">${hl}</div>
+          </div>`;
+        } else {
+          const qt = `<span class="type-badge type-${esc(ev.quote_type)}">${esc(ev.quote_type)}</span>`;
+          return `<div class="match-item">
+            <div class="match-ref-row">
+              <span class="match-ref-badge">${esc(ev.reference)}</span>
+              ${qt}
+              <span class="match-ref-quote">"${esc(ev.quote_text)}"</span>
+            </div>
+          </div>`;
+        }
+      }).join('');
+      evidenceHtml = `
+        <div class="match-evidence">
+          <div class="match-evidence-header">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Match Evidence
+          </div>
+          ${items}
+        </div>`;
+    }
+
     card.innerHTML = `
       <div class="sc-header">
         <div class="sc-name">${esc(s.name)}</div>
@@ -237,39 +905,66 @@ function render() {
       ${total > 0 ? `
       <div>
         <div class="type-bar">
-          ${td.full ? `<div style="width:${p(td.full)}%;background:var(--full)"></div>` : ''}
-          ${td.partial ? `<div style="width:${p(td.partial)}%;background:var(--partial)"></div>` : ''}
-          ${td.paraphrase ? `<div style="width:${p(td.paraphrase)}%;background:var(--paraphrase)"></div>` : ''}
-          ${td.allusion ? `<div style="width:${p(td.allusion)}%;background:var(--allusion)"></div>` : ''}
+          ${td.full      ? `<div style="width:${p(td.full)}%;background:var(--full)"></div>` : ''}
+          ${td.partial   ? `<div style="width:${p(td.partial)}%;background:var(--partial)"></div>` : ''}
+          ${td.paraphrase? `<div style="width:${p(td.paraphrase)}%;background:var(--paraphrase)"></div>` : ''}
+          ${td.allusion  ? `<div style="width:${p(td.allusion)}%;background:var(--allusion)"></div>` : ''}
         </div>
         <div class="type-legend">
-          ${td.full ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--full)"></div>${td.full} Full</div>` : ''}
-          ${td.partial ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--partial)"></div>${td.partial} Partial</div>` : ''}
-          ${td.paraphrase ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--paraphrase)"></div>${td.paraphrase} Paraphrase</div>` : ''}
-          ${td.allusion ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--allusion)"></div>${td.allusion} Allusion</div>` : ''}
+          ${td.full      ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--full)"></div>${td.full} Full</div>` : ''}
+          ${td.partial   ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--partial)"></div>${td.partial} Partial</div>` : ''}
+          ${td.paraphrase? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--paraphrase)"></div>${td.paraphrase} Paraphrase</div>` : ''}
+          ${td.allusion  ? `<div class="type-legend-item"><div class="type-legend-swatch" style="background:var(--allusion)"></div>${td.allusion} Allusion</div>` : ''}
         </div>
       </div>` : '<div style="font-size:.78rem;color:var(--muted);font-style:italic">Not yet processed</div>'}
-      <div class="sc-books">${esc(booksText)}</div>
+      ${evidenceHtml || `<div class="sc-books">${esc(booksText)}</div>`}
       <div class="sc-footer">
-        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();window.location.href='/viewer/${s.id}'">
+        <button class="btn btn-primary btn-sm"
+                onclick="event.stopPropagation();window.location.href='/viewer/${s.id}'">
           View
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
         <div style="flex:1"></div>
-        <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteSource(event,${s.id},'${esc(s.name).replace(/'/g,"\\'")}')">Delete</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red)"
+                onclick="deleteSource(event,${s.id},'${esc(s.name).replace(/'/g,"\\'")}')">Delete</button>
       </div>`;
     grid.appendChild(card);
   });
+
+  wrap.innerHTML = ''; wrap.appendChild(grid);
 }
 
-function loadData() {
+function highlightMatch(snippet, query) {
+  if (!query) return esc(snippet);
+  const escaped = esc(snippet);
+  const qEsc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(esc(qEsc), 'gi'), m => `<mark>${m}</mark>`);
+}
+
+function clearAllFilters() {
+  clearText();
+  filters = [];
+  renderFilterRows();
+  if (advOpen) {
+    document.getElementById('adv-panel').classList.remove('visible');
+    document.getElementById('adv-toggle').classList.remove('active');
+    advOpen = false;
+  }
+  renderSources(null);
+  document.getElementById('active-chips').innerHTML = '';
+  document.getElementById('results-info').style.display = 'none';
+}
+
+// ── Initial load ─────────────────────────────────────────────────────────────
+function loadAll() {
+  // /api/dashboard already includes per-source type_distribution & book_distribution
   fetch('/api/dashboard')
     .then(r => r.json())
-    .then(data => { RAW = data; render(); });
+    .then(data => { RAW = data; renderSources(null); });
 }
 
 addModal.addEventListener('click', e => { if (e.target === addModal) closeModal(); });
-loadData();
+loadAll();
 </script>
 </body>
 </html>

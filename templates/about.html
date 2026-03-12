@@ -453,6 +453,40 @@
       </div>
     </div>
 
+    <!-- Advanced Search -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        Advanced Search
+      </h2>
+      <p>
+        The Sources page includes a powerful multi-layered search system that lets you find sources by their text content, the Bible books they reference, specific chapters, or individual verses — all updating in real time as you type.
+      </p>
+      <div class="type-grid" style="margin-top:14px">
+        <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary)">
+          <strong style="color:var(--primary)">Text Content</strong>
+          <p>Full-text search across all source documents. Matching passages are highlighted in context with the search term shown inline.</p>
+        </div>
+        <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-mid)">
+          <strong style="color:var(--primary-mid)">Bible Book</strong>
+          <p>Find all sources that contain any reference to a chosen Bible book, using a searchable dropdown of all 73 books.</p>
+        </div>
+        <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-light)">
+          <strong style="color:var(--primary)">Chapter</strong>
+          <p>Narrow results to sources referencing a specific chapter (e.g. Psalms 23) using cascading book → chapter selectors.</p>
+        </div>
+        <div class="type-item" style="background:rgba(249,190,0,.1);border-color:var(--accent)">
+          <strong style="color:var(--accent-hover)">Verse</strong>
+          <p>Pinpoint sources that reference a specific verse (e.g. John 3:16) using book → chapter → verse number selectors.</p>
+        </div>
+      </div>
+      <p style="margin-top:16px">
+        <strong>Stacked filters with AND / OR logic</strong> — click <em>Advanced</em> to open the filter builder and stack any number of filters. Toggle between AND (source must match <em>all</em> filters) and OR (source must match <em>any</em> filter). Active filters are summarized as removable chips below the search bar. Match evidence appears directly on each source card, showing the exact text snippet or the matched verse and quote.
+      </p>
+    </div>
+
     <!-- Features -->
     <div class="about-card">
       <h2>
@@ -466,6 +500,7 @@
         <li>Color-coded in-text annotations with click-to-explore interactivity.</li>
         <li>Selection-based re-analysis: highlight any passage and re-run AI detection on just that section.</li>
         <li>Manual annotation editor with a Bible verse picker (book → chapter → verse).</li>
+        <li><strong>Advanced search</strong> with real-time filtering by text content, Bible book, chapter, or verse — stackable filters with AND / OR logic and inline match evidence.</li>
         <li>Distribution charts showing which Bible books and testaments are most referenced.</li>
         <li>Global analytics dashboard across all sources.</li>
         <li>Support for both Gemini API (free tier) and Google Vertex AI.</li>

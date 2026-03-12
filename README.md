@@ -20,8 +20,8 @@ Scripture Detector is a local web application that uses Google Gemini to automat
 
 ## Screenshots
 
-### Sources Page
-Manage all your text sources and see high-level detection statistics at a glance.
+### Sources Page — with Advanced Search
+Manage all your text sources. Use the search bar to search source content in real time, or open the **Advanced** panel to stack filters by Bible book, chapter, or verse with AND / OR logic. Match evidence appears directly on each result card.
 
 ![Sources page](static/screenshots/sources.png)
 
@@ -55,10 +55,26 @@ Full documentation of the application, its features, and how it works.
 - **Click-to-explore interactivity** — click a highlighted passage to highlight the corresponding annotation card, and vice versa.
 - **Selection-based re-analysis** — highlight any portion of the text to re-run AI detection on just that selection.
 - **Manual annotation editor** with an integrated Bible verse picker (book → chapter → verse).
+- **Advanced search** — real-time multi-filter search across all sources by text content, Bible book, chapter, or verse; filters stack with AND / OR logic and matched evidence appears inline on each result card.
 - **Distribution charts** per source and across all sources (by Bible book, testament, and type).
 - **Global analytics dashboard** aggregating data across all sources.
 - **Model switching** — choose between available Gemini model versions in the UI.
 - **Runs entirely locally** — your texts are never transmitted anywhere except for the Gemini API call itself.
+
+---
+
+## Advanced Search
+
+The Sources page includes a real-time multi-filter search system:
+
+| Filter Type | What it matches |
+|---|---|
+| **Text Content** | Any source whose full text contains the search string |
+| **Bible Book** | Any source with at least one reference to the chosen book |
+| **Chapter** | Any source with a reference to the chosen chapter (e.g. Psalms 23) |
+| **Verse** | Any source with a reference to the exact chosen verse (e.g. John 3:16) |
+
+Filters can be stacked in any combination. The **AND** mode requires a source to satisfy *every* filter; **OR** mode returns sources satisfying *any* filter. Results update within ~350 ms of each keystroke or dropdown change. Matched text snippets and verse citations appear as inline evidence on each result card.
 
 ---
 

@@ -270,6 +270,180 @@ def get_quote_type_distribution(source_id: int = None) -> dict:
         return {r["quote_type"]: r["count"] for r in rows}
 
 
+def search_sources(filters: list[dict], logic: str = "AND") -> dict:
+    """
+    Search sources by text content and/or scripture references.
+
+    filters: list of dicts, each with:
+      - type: 'text' | 'book' | 'chapter' | 'verse'
+      - value: the query string (already lowercased by caller)
+    logic: 'AND' (source must match all filters) |
+           'OR'  (source must match any filter)
+
+    Returns {'total': int, 'results': [enriched source dicts]}
+    """
+    valid = [f for f in filters if f.get("value", "").strip()]
+    if not valid:
+        return {"total": 0, "results": []}
+
+    with get_db() as conn:
+        # --- per-filter: map source_id → list of evidence dicts ---------------
+        filter_evidence: list[dict[int, list[dict]]] = []
+
+        for f in valid:
+            ftype = f["type"]
+            fval  = f["value"].strip().lower()
+            ev: dict[int, list[dict]] = {}
+
+            if ftype == "text":
+                rows = conn.execute(
+                    "SELECT id, name, text FROM sources "
+                    "WHERE lower(text) LIKE ? OR lower(name) LIKE ?",
+                    [f"%{fval}%", f"%{fval}%"],
+                ).fetchall()
+                for r in rows:
+                    full = r["text"]
+                    idx  = full.lower().find(fval)
+                    if idx >= 0:
+                        s0 = max(0, idx - 100)
+                        s1 = min(len(full), idx + len(fval) + 100)
+                        pre  = ("…" if s0 > 0 else "")
+                        post = ("…" if s1 < len(full) else "")
+                        snippet = pre + full[s0:s1] + post
+                    else:
+                        snippet = f'(matched source name: "{r["name"]}")'
+                    ev[r["id"]] = ev.get(r["id"], [])
+                    ev[r["id"]].append({
+                        "kind": "text", "snippet": snippet,
+                        "query": f["value"], "offset": idx,
+                    })
+
+            elif ftype == "book":
+                rows = conn.execute(
+                    """SELECT DISTINCT q.source_id,
+                              qr.reference, q.quote_text, q.quote_type
+                       FROM quotes q
+                       JOIN quote_references qr ON qr.quote_id = q.id
+                       WHERE qr.book_code = ?""",
+                    [fval],
+                ).fetchall()
+                for r in rows:
+                    sid = r["source_id"]
+                    ev.setdefault(sid, [])
+                    ev[sid].append({
+                        "kind": "ref", "reference": r["reference"],
+                        "quote_text": r["quote_text"][:120],
+                        "quote_type": r["quote_type"],
+                    })
+
+            elif ftype == "chapter":
+                # fval is e.g. "gen_1"
+                rows = conn.execute(
+                    """SELECT DISTINCT q.source_id,
+                              qr.reference, q.quote_text, q.quote_type
+                       FROM quotes q
+                       JOIN quote_references qr ON qr.quote_id = q.id
+                       WHERE qr.reference LIKE ?""",
+                    [f"{fval}:%"],
+                ).fetchall()
+                for r in rows:
+                    sid = r["source_id"]
+                    ev.setdefault(sid, [])
+                    ev[sid].append({
+                        "kind": "ref", "reference": r["reference"],
+                        "quote_text": r["quote_text"][:120],
+                        "quote_type": r["quote_type"],
+                    })
+
+            elif ftype == "verse":
+                # fval is e.g. "gen_1:1"
+                rows = conn.execute(
+                    """SELECT DISTINCT q.source_id,
+                              qr.reference, q.quote_text, q.quote_type
+                       FROM quotes q
+                       JOIN quote_references qr ON qr.quote_id = q.id
+                       WHERE qr.reference = ?""",
+                    [fval],
+                ).fetchall()
+                for r in rows:
+                    sid = r["source_id"]
+                    ev.setdefault(sid, [])
+                    ev[sid].append({
+                        "kind": "ref", "reference": r["reference"],
+                        "quote_text": r["quote_text"][:120],
+                        "quote_type": r["quote_type"],
+                    })
+
+            filter_evidence.append(ev)
+
+        # --- combine filter result sets ---------------------------------------
+        id_sets = [set(ev.keys()) for ev in filter_evidence]
+        if logic == "AND":
+            matching: set[int] = id_sets[0]
+            for s in id_sets[1:]:
+                matching &= s
+        else:
+            matching = set()
+            for s in id_sets:
+                matching |= s
+
+        if not matching:
+            return {"total": 0, "results": []}
+
+        # --- fetch source rows with aggregate stats --------------------------
+        placeholders = ",".join("?" * len(matching))
+        src_rows = conn.execute(
+            f"""SELECT s.id, s.name, s.created_at,
+                       COUNT(q.id) as quote_count
+                FROM sources s
+                LEFT JOIN quotes q ON q.source_id = s.id
+                WHERE s.id IN ({placeholders})
+                GROUP BY s.id ORDER BY s.created_at DESC""",
+            list(matching),
+        ).fetchall()
+
+        results = []
+        for src in src_rows:
+            sd = dict(src)
+
+            # type distribution
+            td_rows = conn.execute(
+                "SELECT quote_type, COUNT(*) as c FROM quotes "
+                "WHERE source_id=? GROUP BY quote_type",
+                [sd["id"]],
+            ).fetchall()
+            sd["type_distribution"] = {r["quote_type"]: r["c"] for r in td_rows}
+
+            # book distribution (top 5)
+            bd_rows = conn.execute(
+                """SELECT qr.book_code, COUNT(*) as count
+                   FROM quote_references qr
+                   JOIN quotes q ON qr.quote_id = q.id
+                   WHERE q.source_id = ? AND qr.book_code != ''
+                   GROUP BY qr.book_code ORDER BY count DESC LIMIT 5""",
+                [sd["id"]],
+            ).fetchall()
+            sd["book_distribution"] = [dict(r) for r in bd_rows]
+
+            # aggregate evidence from all matching filters, deduplicate refs
+            all_ev: list[dict] = []
+            seen_refs: set[str] = set()
+            for ev in filter_evidence:
+                if sd["id"] in ev:
+                    for item in ev[sd["id"]]:
+                        if item["kind"] == "ref":
+                            key = item["reference"]
+                            if key in seen_refs:
+                                continue
+                            seen_refs.add(key)
+                        all_ev.append(item)
+            sd["match_evidence"] = all_ev[:10]
+
+            results.append(sd)
+
+        return {"total": len(results), "results": results}
+
+
 def get_dashboard_data() -> dict:
     with get_db() as conn:
         source_count = conn.execute("SELECT COUNT(*) as c FROM sources").fetchone()["c"]

@@ -13,6 +13,7 @@ from database import (
     delete_quotes_for_source, delete_quotes_in_range,
     get_setting, set_setting, get_all_settings,
     get_book_distribution, get_quote_type_distribution, get_dashboard_data,
+    search_sources,
 )
 
 app = Flask(__name__)
@@ -280,6 +281,36 @@ def settings_page():
 @app.route("/about")
 def about_page():
     return render_template("about.html")
+
+
+# ── API: Search ───────────────────────────────────────────────────────────────
+
+@app.route("/api/search", methods=["POST"])
+def api_search():
+    body    = request.get_json() or {}
+    filters = body.get("filters", [])
+    logic   = body.get("logic", "AND")
+    if logic not in ("AND", "OR"):
+        logic = "AND"
+
+    # Normalise filter values to lowercase; reject empties
+    clean = [
+        {"type": f.get("type", "text"), "value": str(f.get("value", "")).strip().lower()}
+        for f in filters
+        if str(f.get("value", "")).strip()
+    ]
+
+    result = search_sources(clean, logic)
+
+    # Enrich book_distribution entries with human-readable names
+    bm = book_mapping()
+    for src in result["results"]:
+        for item in src.get("book_distribution", []):
+            info = bm.get(item["book_code"], {})
+            item["book_name"]  = info.get("name",      item["book_code"])
+            item["testament"]  = info.get("testament", "")
+
+    return jsonify(result)
 
 
 # ── API: Sources ─────────────────────────────────────────────────────────────
