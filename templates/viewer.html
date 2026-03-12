@@ -554,8 +554,8 @@ document.addEventListener('mousedown', e => {
 const PROCESS_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>';
 
 function processSource() {
-  if (DATA && DATA.quotes && DATA.quotes.length > 0) {
-    const n = DATA.quotes.length;
+  if (DATA && DATA.annotations && DATA.annotations.length > 0) {
+    const n = DATA.annotations.length;
     if (!confirm(
       `This source already has ${n} annotation${n !== 1 ? 's' : ''}.\n\n` +
       `Processing with AI will delete all existing annotations and replace them with new results.\n\n` +
@@ -579,8 +579,8 @@ function processSource() {
 
 function analyzeSelection() {
   if (!selRange) return;
-  if (DATA && DATA.quotes && DATA.quotes.length > 0) {
-    const n = DATA.quotes.length;
+  if (DATA && DATA.annotations && DATA.annotations.length > 0) {
+    const n = DATA.annotations.length;
     if (!confirm(
       `This source already has ${n} annotation${n !== 1 ? 's' : ''}.\n\n` +
       `Analyzing this selection may overwrite existing annotations that overlap the selected passage.\n\n` +
