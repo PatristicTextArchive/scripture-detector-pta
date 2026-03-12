@@ -19,13 +19,12 @@
 
 FROM python:3.12-slim
 
-# Install uv (fast Python package manager)
+# Install git (required by Hugging Face Spaces build system) and uv
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv
 
 WORKDIR /app
-
-# Clone the scripture-detector repository and change directory into it
-RUN git clone https://github.com/yale-ch/scripture-detector.git /app && cd /app
 
 
 # Copy dependency manifest first to leverage Docker layer caching.
@@ -40,10 +39,10 @@ COPY . .
 
 # Bind to all interfaces inside the container
 ENV SD_HOST=0.0.0.0
-ENV SD_PORT=5432
+ENV SD_PORT=7860
 
 # Expose the Flask port
-EXPOSE 5432
+EXPOSE 7860
 
 # Default: run with --cache-db (in-memory database, no volume needed).
 # To use a persistent database instead, override CMD and set SD_DB_DIR.

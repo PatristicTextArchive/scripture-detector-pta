@@ -2,23 +2,27 @@ import os
 import sys
 
 # ── parse custom flags BEFORE importing database (which reads env vars) ───────
+# The --cache-db CLI flag sets the env var so gunicorn deployments can instead
+# set SCRIPTURE_DETECTOR_CACHE_DB=1 in their environment directly.
 _argv = sys.argv[1:]
 if "--cache-db" in _argv:
     os.environ["SCRIPTURE_DETECTOR_CACHE_DB"] = "1"
-# Remove our custom flags so Flask/werkzeug doesn't choke on them
 sys.argv = [sys.argv[0]] + [a for a in _argv if a != "--cache-db"]
 
 import csv
 import io
 import json
 import re
+import uuid
 import zipfile
 from datetime import date
 from pathlib import Path
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, Response
+from flask import Flask, render_template, jsonify, request, redirect, url_for, Response, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 from google import genai
 
+import database   # imported as module so we can write to database.session_local
 from database import (
     init_db,
     create_source, get_source, get_all_sources, delete_source,
@@ -31,6 +35,43 @@ from database import (
 from tei import source_to_tei, tei_to_source_data
 
 app = Flask(__name__)
+
+# Trust the X-Forwarded-* headers from reverse proxies (HuggingFace, nginx…).
+# This lets Flask see the real HTTPS scheme so secure cookies work correctly.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# ── Secret key ────────────────────────────────────────────────────────────────
+# Set SD_SECRET_KEY in the environment (HF Spaces → Settings → Secrets) so
+# sessions survive server restarts.  A random key is used as a safe fallback
+# (sessions reset whenever the server restarts).
+app.secret_key = os.environ.get("SD_SECRET_KEY") or os.urandom(32)
+
+# ── Session cookie settings ───────────────────────────────────────────────────
+# HuggingFace Spaces embeds the app inside an <iframe>.  Browsers block
+# SameSite=Lax cookies in cross-site iframes, which would create a new session
+# on every request and make the per-user database invisible.
+# SameSite=None + Secure=True is the correct fix for iframe deployments.
+# We detect HTTPS via the ProxyFix-corrected request scheme at runtime so
+# that local HTTP development still works without secure cookies.
+_BEHIND_PROXY = bool(os.environ.get("SD_BEHIND_PROXY") or
+                     os.environ.get("SCRIPTURE_DETECTOR_CACHE_DB"))
+
+if _BEHIND_PROXY:
+    app.config["SESSION_COOKIE_SAMESITE"] = "None"
+    app.config["SESSION_COOKIE_SECURE"]   = True
+
+_CACHE_MODE = bool(os.environ.get("SCRIPTURE_DETECTOR_CACHE_DB"))
+
+
+@app.before_request
+def _bind_session_db():
+    """Assign (and persist) a unique DB session ID for this browser session."""
+    if not _CACHE_MODE:
+        return
+    if "_db_sid" not in session:
+        session["_db_sid"] = str(uuid.uuid4())
+        session.permanent = True
+    database.session_local.session_id = session["_db_sid"]
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 BIBLE_TSV_PATH = PROJECT_ROOT / "data" / "bible.tsv"

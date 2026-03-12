@@ -2,6 +2,7 @@ import os
 import sqlite3
 import re
 import threading
+import time
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -13,39 +14,100 @@ DB_PATH = (
     else Path(__file__).resolve().parent / "scripture_detector.db"
 )
 
-# ── cache-db (in-memory) mode ─────────────────────────────────────────────────
-# Enabled by setting env var SCRIPTURE_DETECTOR_CACHE_DB=1 before this module
-# is imported.  app.py sets this when --cache-db flag is present.
+# ── cache-db (per-session in-memory) mode ────────────────────────────────────
+# Enabled by SCRIPTURE_DETECTOR_CACHE_DB=1 (set by app.py when --cache-db is
+# passed).  Each browser session gets its own isolated SQLite :memory: database.
+# Sessions are keyed by a UUID stored in the signed Flask session cookie and
+# cleaned up after SESSION_TTL seconds of inactivity.
+
 _CACHE_MODE: bool = os.environ.get("SCRIPTURE_DETECTOR_CACHE_DB", "") in ("1", "true", "yes")
-_cache_conn: sqlite3.Connection | None = None
-_cache_lock: threading.Lock = threading.Lock()
+SESSION_TTL: int  = int(os.environ.get("SD_SESSION_TTL", "3600"))  # default 1 hour
+
+# Maps session_id → {conn, lock, last_used}
+_sessions: dict[str, dict] = {}
+_sessions_lock = threading.Lock()
+
+# Thread-local holds the current session_id (set by app.py before_request hook)
+session_local = threading.local()
 
 
-def _make_cache_connection() -> sqlite3.Connection:
+_SCHEMA_SQL = """
+    CREATE TABLE IF NOT EXISTS sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS quotes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source_id INTEGER NOT NULL,
+        span_start INTEGER,
+        span_end INTEGER,
+        quote_text TEXT NOT NULL,
+        quote_type TEXT NOT NULL DEFAULT 'allusion'
+            CHECK(quote_type IN ('full','partial','paraphrase','allusion')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS quote_references (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quote_id INTEGER NOT NULL,
+        reference TEXT NOT NULL,
+        book_code TEXT,
+        FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+"""
+
+
+def _new_session_conn() -> sqlite3.Connection:
+    """Create a fresh in-memory SQLite connection with the full schema."""
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.executescript(_SCHEMA_SQL)
+    conn.commit()
     return conn
 
 
-def get_connection() -> sqlite3.Connection:
-    global _cache_conn
-    if _CACHE_MODE:
-        if _cache_conn is None:
-            _cache_conn = _make_cache_connection()
-        return _cache_conn
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _get_session_entry(session_id: str) -> dict:
+    """Return (and lazily create) the session entry for *session_id*."""
+    with _sessions_lock:
+        # Prune idle sessions
+        now = time.monotonic()
+        stale = [sid for sid, s in _sessions.items()
+                 if now - s["last_used"] > SESSION_TTL]
+        for sid in stale:
+            try:
+                _sessions[sid]["conn"].close()
+            except Exception:
+                pass
+            del _sessions[sid]
+
+        if session_id not in _sessions:
+            _sessions[session_id] = {
+                "conn":      _new_session_conn(),
+                "lock":      threading.Lock(),
+                "last_used": now,
+            }
+        else:
+            _sessions[session_id]["last_used"] = now
+
+        return _sessions[session_id]
 
 
 @contextmanager
 def get_db():
     if _CACHE_MODE:
-        # Serialise access to the single in-memory connection.
-        with _cache_lock:
-            conn = get_connection()
+        sid   = getattr(session_local, "session_id", None) or "anonymous"
+        entry = _get_session_entry(sid)
+        with entry["lock"]:
+            conn = entry["conn"]
             try:
                 yield conn
                 conn.commit()
@@ -53,7 +115,9 @@ def get_db():
                 conn.rollback()
                 raise
     else:
-        conn = get_connection()
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
         try:
             yield conn
             conn.commit()
@@ -65,39 +129,12 @@ def get_db():
 
 
 def init_db():
+    if _CACHE_MODE:
+        # In cache mode each session's schema is initialised when its
+        # connection is first created (_new_session_conn).  Nothing to do here.
+        return
     with get_db() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS sources (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                text TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS quotes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id INTEGER NOT NULL,
-                span_start INTEGER,
-                span_end INTEGER,
-                quote_text TEXT NOT NULL,
-                quote_type TEXT NOT NULL DEFAULT 'allusion'
-                    CHECK(quote_type IN ('full','partial','paraphrase','allusion')),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
-            );
-            CREATE TABLE IF NOT EXISTS quote_references (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                quote_id INTEGER NOT NULL,
-                reference TEXT NOT NULL,
-                book_code TEXT,
-                FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
-            );
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-        """)
+        conn.executescript(_SCHEMA_SQL)
 
 
 def extract_book_code(reference: str) -> str:
