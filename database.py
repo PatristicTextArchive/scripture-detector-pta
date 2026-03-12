@@ -311,7 +311,8 @@ def search_sources(filters: list[dict], logic: str = "AND") -> dict:
                         post = ("…" if s1 < len(full) else "")
                         snippet = pre + full[s0:s1] + post
                     else:
-                        snippet = f'(matched source name: "{r["name"]}")'
+                        # Query matched the source name, not the text body
+                        snippet = r["name"]
                     ev[r["id"]] = ev.get(r["id"], [])
                     ev[r["id"]].append({
                         "kind": "text", "snippet": snippet,

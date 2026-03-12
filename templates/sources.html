@@ -243,13 +243,16 @@
 .match-item:first-child { border-top: none; }
 
 .match-text-snippet {
-  color: var(--text-secondary); line-height: 1.5;
-  overflow: hidden; display: -webkit-box;
-  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  color: var(--text-secondary); line-height: 1.6;
 }
 .match-text-snippet mark {
-  background: #fff3cd; color: #6a4000;
-  border-radius: 2px; padding: 0 2px; font-weight: 700;
+  background: #fef08a; color: #713f12;
+  border-radius: 2px; padding: 1px 3px; font-weight: 800;
+  box-shadow: 0 0 0 1px #fde047;
+}
+.match-loc {
+  font-size: .68rem; color: var(--muted); margin-top: 3px;
+  font-style: italic;
 }
 
 .match-ref-row {
@@ -473,6 +476,7 @@ function setLogic(l) {
     l === 'AND'
       ? 'Source must match <strong>all</strong> filters'
       : 'Source must match <strong>any</strong> filter';
+  renderFilterRows();   // update connector labels between rows
   scheduleSearch();
 }
 
@@ -862,9 +866,19 @@ function renderSources(searchResult) {
     if (s.match_evidence && s.match_evidence.length > 0) {
       const items = s.match_evidence.map(ev => {
         if (ev.kind === 'text') {
+          if (ev.offset < 0) {
+            // Name-only match
+            return `<div class="match-item">
+              <div class="match-text-snippet">
+                Matched source name: <mark>${esc(ev.query)}</mark>
+              </div>
+            </div>`;
+          }
           const hl = highlightMatch(ev.snippet, ev.query);
+          const pos = ev.offset > 0 ? `~${Math.round(ev.offset / 100) * 100} chars in` : 'start of text';
           return `<div class="match-item">
             <div class="match-text-snippet">${hl}</div>
+            <div class="match-loc">Found at ${pos}</div>
           </div>`;
         } else {
           const qt = `<span class="type-badge type-${esc(ev.quote_type)}">${esc(ev.quote_type)}</span>`;
@@ -936,9 +950,11 @@ function renderSources(searchResult) {
 
 function highlightMatch(snippet, query) {
   if (!query) return esc(snippet);
+  // esc() the snippet first, then highlight the query within the escaped HTML
   const escaped = esc(snippet);
   const qEsc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return escaped.replace(new RegExp(esc(qEsc), 'gi'), m => `<mark>${m}</mark>`);
+  // The query arrives lowercased from the API; match case-insensitively
+  return escaped.replace(new RegExp(qEsc, 'gi'), m => `<mark>${m}</mark>`);
 }
 
 function clearAllFilters() {
