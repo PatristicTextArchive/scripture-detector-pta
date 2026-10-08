@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scripture Detector — {{ source.name }}</title>
+<title>Scripture Detector PTA — {{ source.name }}</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
+<script src="/static/ui.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
   .header { position: sticky; top: 0; }
@@ -289,7 +290,7 @@
   <a href="/" class="header-brand">
     <img src="/static/logo.svg" alt="Logo" class="header-logo">
     <div>
-      <div class="header-title">Scripture Detector</div>
+      <div class="header-title">Scripture Detector PTA</div>
       <div class="header-subtitle">{{ source.name }}</div>
     </div>
   </a>
@@ -307,8 +308,8 @@
     Process with AI
   </button>
   <a class="btn btn-ghost" id="export-tei-btn"
-     href="/api/sources/{{ source.id }}/export/tei" download
-     title="Download this source as TEI XML">
+     href="/api/sources/{{ source.id }}/export/tei" download onclick="return exportTei(event)"
+     title="Download TEI XML with the quotations encoded according to the PTA encoding guidelines (written into the original file for imported TEI)">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Export TEI
   </a>
@@ -402,6 +403,7 @@
 
 <script>
 const SOURCE_ID = {{ source.id }};
+const SOURCE_LANG = {{ source_lang|tojson }};
 const textPanel = document.getElementById('text-panel');
 const annPanel = document.getElementById('ann-panel');
 const selToolbar = document.getElementById('sel-toolbar');
@@ -413,13 +415,29 @@ let modalRefs = [];
 let bibleBooks = null;
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function showToast(msg, ok) {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
+function exportTei(ev) {
+  ev.preventDefault();
+  const url = ev.currentTarget.getAttribute('href') + '?json=1';
+  fetch(url).then(async r => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { showToast(data.error || 'Export failed', false); return; }
+    const blob = new Blob([data.xml], {type: 'application/xml'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = data.filename || 'export.xml';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    const w = data.warnings || [];
+    if (w.length) {
+      showToast(`TEI exported with ${w.length} note${w.length !== 1 ? 's' : ''}. See the list for details.`, 'warn');
+      showNotice('Notes on the TEI export', w);
+    } else {
+      showToast('TEI exported', true);
+    }
+  }).catch(e => showToast('Export error: ' + e.message, false));
+  return false;
 }
+
 
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -481,6 +499,7 @@ function renderText() {
       <div class="ann-card ann-${qt}" data-idx="${i}" data-id="${a.id}">
         <div class="ann-refs">
           <span class="type-badge type-${qt}">${qt}</span>
+          ${a.score != null ? `<span class="ref-badge" style="${a.score < 0.4 ? 'color:var(--red)' : ''}" title="Share of the quoted words that occur in the referenced verse(s). Low values suggest a wrong reference or a free paraphrase.">match ${Math.round(a.score*100)}%</span>` : ''}
           ${(a.refs||[]).map(r => `<span class="ref-badge">${esc(r)}</span>`).join('')}
         </div>
         <div class="ann-quote">"${esc(snippet)}${snippet.length < (a.quote_text||'').length ? '...' : ''}"</div>
@@ -615,7 +634,7 @@ function analyzeSelection() {
 
 function loadBibleBooks() {
   if (bibleBooks) return Promise.resolve();
-  return fetch('/api/bible/books').then(r => r.json()).then(books => {
+  return fetch(`/api/bible/books?lang=${SOURCE_LANG}`).then(r => r.json()).then(books => {
     bibleBooks = books;
     const sel = document.getElementById('ref-book');
     sel.innerHTML = '<option value="">Select Book...</option>';
@@ -636,7 +655,7 @@ function onBookChange() {
   chSel.disabled = true;
   versesWrap.style.display = 'none';
   if (!book) return;
-  fetch(`/api/bible/${book}/chapters`).then(r => r.json()).then(chapters => {
+  fetch(`/api/bible/${book}/chapters?lang=${SOURCE_LANG}`).then(r => r.json()).then(chapters => {
     chapters.forEach(ch => {
       const opt = document.createElement('option');
       opt.value = ch;
@@ -654,7 +673,7 @@ function onChapterChange() {
   const versesList = document.getElementById('ref-verses');
   versesWrap.style.display = 'none';
   if (!book || !chapter) return;
-  fetch(`/api/bible/${book}/${chapter}/verses`).then(r => r.json()).then(verses => {
+  fetch(`/api/bible/${book}/${chapter}/verses?lang=${SOURCE_LANG}`).then(r => r.json()).then(verses => {
     if (verses.length === 0) {
       versesList.innerHTML = '<div class="ref-no-verses">No verses found</div>';
     } else {

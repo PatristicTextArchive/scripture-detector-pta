@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scripture Detector — About</title>
+<title>Scripture Detector PTA — About</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
 <style>
@@ -262,6 +262,25 @@
   .workshop-banner .ws-info a { color: var(--primary-mid); }
 
   /* API key note */
+  .about-card code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .82em;
+    background: var(--border-light);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .about-card pre {
+    background: var(--border-light);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: .78rem;
+    line-height: 1.55;
+    margin: 12px 0;
+  }
+  .about-card pre code { background: none; padding: 0; font-size: inherit; }
+  .about-card a { color: var(--primary-mid); font-weight: 600; text-decoration: none; }
+  .about-card a:hover { text-decoration: underline; }
   .api-note {
     display: flex;
     align-items: flex-start;
@@ -292,7 +311,7 @@
   <a href="/" class="header-brand">
     <img src="/static/logo.svg" alt="Logo" class="header-logo">
     <div>
-      <div class="header-title">Scripture Detector</div>
+      <div class="header-title">Scripture Detector PTA</div>
       <div class="header-subtitle">About</div>
     </div>
   </a>
@@ -308,10 +327,13 @@
 <div class="hero">
   <img src="/static/logo.svg" alt="Scripture Detector Logo" class="hero-logo">
   <h1>Scripture Detector</h1>
-  <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in historical texts — powered by Google Gemini.</p>
+  <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in Greek and Latin texts — with TEI import and export following the encoding guidelines of the Patristic Text Archive.</p>
   <div class="hero-badges">
     <span class="hero-badge"><span class="dot"></span>Powered by Google Gemini</span>
-    <span class="hero-badge"><span class="dot"></span>Yale University</span>
+    <span class="hero-badge"><span class="dot"></span>Greek &amp; Latin</span>
+    <span class="hero-badge"><span class="dot"></span>TEI · PTA encoding</span>
+    <span class="hero-badge"><span class="dot"></span>Yale University (original)</span>
+    <span class="hero-badge"><span class="dot"></span>Berlin-Brandenburg Academy of Sciences and the Humanities, Patristic Text Archive (fork)</span>
     <span class="hero-badge"><span class="dot"></span>Open Source</span>
   </div>
 </div>
@@ -326,7 +348,7 @@
         <h3>Dr. William J.B. Mattingly</h3>
         <div class="role">Cultural Heritage Data Scientist · Yale University</div>
         <p>
-          Scripture Detector was developed by Dr. William J.B. Mattingly, Cultural Heritage Data Scientist at Yale University. The application was built for the international workshop
+          Scripture Detector was originally developed by Dr. William J.B. Mattingly, Cultural Heritage Data Scientist at Yale University. The application was built for the international workshop
           <strong><a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank">Ruse of Reuse: Detecting Text-similarity with AI in Historical Sources</a></strong>
           (March 5–6, 2026), hosted by the Austrian Academy of Sciences in Vienna.
         </p>
@@ -338,6 +360,22 @@
             <h4 style="color:#f9be00">Ruse of Reuse Workshop · March 5–6, 2026</h4>
             <p style="color:rgba(255,255,255,.7)">Austrian Academy of Sciences · PSK, Georg-Coch-Platz 2, 1010 Vienna<br>
             Organised by the Digital Lab, Institute for Medieval Research, Austrian Academy of Sciences &amp; SOLEMNE, Radboud University</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="author-card">
+      <div class="author-icon">👤</div>
+      <div class="author-info">
+        <h3>Dr. habil. Annette von Stockhausen</h3>
+        <div class="role">Berlin-Brandenburg Academy of Sciences and the Humanities – Patristic Text Archive</div>
+        <p>
+          This fork of Scripture Detector was developed by Dr. habil. Annette von Stockhausen with the help of Claude Sonnet 5.5 for use within the framework of the Patristic Text Archive (PTA).
+        </p>
+        <div class="workshop-banner" style="background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);margin-top:14px">
+          <div class="ws-info" style="color:rgba(255,255,255,.85)">
+            <h4 style="color:#f9be00">This fork for PTA use (October 2026)</h4>
           </div>
         </div>
       </div>
@@ -357,6 +395,11 @@
       <p>
         Each detected passage is linked to the exact verse(s) it references, displayed in context within the original document, and explored through interactive visualizations. The application is designed for scholars, students, and researchers working with texts that draw on the biblical tradition.
       </p>
+      <p>
+        This version works with <strong>Greek</strong> texts (Septuagint and New Testament) and <strong>Latin</strong> texts (Vulgate), and reads and writes <strong>TEI XML</strong>: detected quotations are written back into the TEI file following the encoding guidelines of the
+        <a href="https://pta.bbaw.de" target="_blank" rel="noopener">Patristic Text Archive</a>. It is a fork of the
+        <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">Scripture Detector</a> by Dr. William J.B. Mattingly (Yale University).
+      </p>
     </div>
 
     <!-- How it works -->
@@ -371,22 +414,22 @@
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-body">
-            <h3>Add a Source Text</h3>
-            <p>Paste any text you want to analyze — a sermon, a letter, a medieval chronicle, a theological treatise — into the Sources page. The text is stored locally in a SQLite database.</p>
+            <h3>Add a Source Text or import TEI</h3>
+            <p>Paste any Greek or Latin text — a sermon, a letter, a chronicle, a theological treatise — into the Sources page, or import one or more TEI files. For TEI the language is read from <code>xml:lang</code> of the first <code>&lt;div&gt;</code> in <code>&lt;text&gt;</code> (<code>grc</code> or <code>lat</code>); the running text is extracted and the original XML is kept. Everything is stored locally in a SQLite database.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-body">
             <h3>AI Detection via Google Gemini</h3>
-            <p>Click "Process with AI" to send the text to Google Gemini with a carefully engineered prompt. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Only a free Gemini API key is required.</p>
+            <p>Click "Process with AI" to send the text to Google Gemini with a carefully engineered prompt. The prompt names the Bible corpus of the text's language and lists typical introductory formulas (such as <em>γέγραπται, φησίν, λέγει</em>; <em>scriptum est, ait, inquit</em>). Passages already marked as <code>&lt;quote&gt;</code> in a TEI file are passed on as hints. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Long texts are analyzed in chunks.</p>
           </div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-body">
             <h3>Span Location &amp; Annotation</h3>
-            <p>The app finds the exact character span of each detected quote within the original text, then stores annotations linking text spans to specific Bible verses using a full verse database.</p>
+            <p>The app finds the exact character span of each detected quote within the original text — ignoring accents, breathings, case, and sigma variants — and checks every reference against the verse database; invented verses are dropped. Each quote gets a <em>match</em> score: the share of its words found in the referenced verse(s).</p>
           </div>
         </div>
         <div class="step">
@@ -394,6 +437,13 @@
           <div class="step-body">
             <h3>Interactive Exploration</h3>
             <p>View color-coded highlights directly in the text, click any passage to see the verse references and original Bible text side-by-side, edit or add annotations manually, and explore distribution charts by Bible book, testament, and quote type.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h3>Export TEI</h3>
+            <p>Export the result as TEI following the PTA guidelines: written into the original file for imported TEI, or into a minimal PTA-style document for pasted text. Notes on anything that could not be encoded are listed with the passage, its context, and its location in the file.</p>
           </div>
         </div>
       </div>
@@ -428,6 +478,61 @@
       </div>
     </div>
 
+    <!-- Bible texts and Patristic Text Archive -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </span>
+        Bible Texts &amp; the Patristic Text Archive
+      </h2>
+      <p>
+        The Greek Bible texts come from the <strong><a href="https://pta.bbaw.de" target="_blank" rel="noopener">Patristic Text Archive</a></strong> (PTA), a digital archive of patristic and related texts at the Berlin-Brandenburg Academy of Sciences and Humanities. They are taken from the PTA data repository on GitHub,
+        <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener">PatristicTextArchive/pta_data</a> (<code>data/pta9999</code>, Greek editions <code>grc1</code>): the <strong>Septuagint</strong> in Rahlfs' numbering and the <strong>Greek New Testament</strong> — 80 books and 37,034 verses.
+      </p>
+      <ul>
+        <li>The Greek texts are used under the licence stated in the PTA files, <strong>CC BY-SA 4.0</strong>; the derived verse database in <code>data/greek</code> is shared under the same licence. How to cite the PTA data is described in the <code>CITATION.cff</code> of the repository.</li>
+        <li>Book codes follow the PTA abbreviations (<code>Gn</code>, <code>Ps</code>, <code>Mt</code>, …), so that references can be exported as <code>LXX:Ps:62:9</code> or <code>NA:Mt:5:9</code>. For Latin texts the prefix is <code>Vg</code> (<code>Vg:Gn:1:1</code>).</li>
+        <li>Only the primary text form (<code>grc1</code>) of each book is used; alternative forms (e.g. Judges B, Old Greek Daniel) are not included.</li>
+        <li>The Latin <strong>Vulgate</strong> verse database was part of the original Scripture Detector.</li>
+        <li>To rebuild the Greek data: <code>python scripts/build_greek_bible.py --pta-data /path/to/pta_data</code></li>
+      </ul>
+      <div class="api-note">
+        <div class="api-note-icon">🔗</div>
+        <p>
+          <strong>Patristic Text Archive:</strong>
+          <a href="https://pta.bbaw.de" target="_blank" rel="noopener">pta.bbaw.de</a> ·
+          <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener">github.com/PatristicTextArchive/pta_data</a> ·
+          <a href="https://pta.bbaw.de/en/project/encoding-guidelines" target="_blank" rel="noopener">Encoding guidelines</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- TEI export -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </span>
+        TEI Import &amp; Export
+      </h2>
+      <p>
+        Results are encoded as described in the PTA
+        <a href="https://pta.bbaw.de/en/project/encoding-guidelines#encoding-of-biblical-and-other-quotations-and-allusions" target="_blank" rel="noopener">encoding guidelines for biblical quotations and allusions</a>:
+      </p>
+      <pre><code>&lt;quote type="marked"&gt;ἐκολλήθη ἡ ψυχή μου ὀπίσω σου&lt;ref decls="#biblical" cRef="LXX:Ps:62:9"/&gt;&lt;/quote&gt;
+&lt;seg type="allusion"&gt;…&lt;ref decls="#biblical" cRef="NA:Phil:2:8-10"/&gt;&lt;/seg&gt;</code></pre>
+      <ul>
+        <li>Full and partial quotations become <code>&lt;quote&gt;</code> (<code>marked</code> if introduced by a formula, otherwise <code>unmarked</code>), paraphrases <code>&lt;quote type="paraphrasis"&gt;</code>, allusions <code>&lt;seg type="allusion"&gt;</code>.</li>
+        <li>Consecutive verses become one reference with a range (<code>2:8-10</code>); verses that do not follow each other are joined with a dot (<code>2:8.10</code>).</li>
+        <li>Quotations crossing element boundaries (<code>&lt;hi&gt;</code>, <code>&lt;lb/&gt;</code>, <code>&lt;pb/&gt;</code>, paragraphs) are split and linked with <code>@prev</code> / <code>@next</code>.</li>
+        <li><strong>Existing <code>&lt;quote&gt;</code> elements</strong> are never duplicated: they only receive the <code>&lt;ref&gt;</code> and, if missing, a <code>@type</code>. Quotes that already carry a biblical reference stay untouched.</li>
+        <li>The header receives the <code>refsDecl</code> for <code>#biblical</code>, the annotation-status declarations, and a <code>&lt;change&gt;</code> entry; the status is declared as <em>partially annotated</em> — please review the automatic results.</li>
+        <li>Re-importing an exported file restores the annotations, and re-exporting replaces them instead of duplicating them.</li>
+        <li>In manuscript transcriptions the PTA does not use <code>&lt;quote&gt;</code>; the export warns in that case.</li>
+      </ul>
+    </div>
+
     <!-- Technical requirements -->
     <div class="about-card">
       <h2>
@@ -439,7 +544,7 @@
       <ul>
         <li>Python 3.10+ with Flask — the entire backend runs as a lightweight local web application.</li>
         <li>SQLite — all sources, annotations, and settings are stored in a local database with no external server required.</li>
-        <li>A full Bible verse database (35,000+ verses) is included and used for verse lookup and reference validation.</li>
+        <li>Bible verse databases are included and used for verse lookup, reference validation, and match scores: the Greek Bible (Septuagint and New Testament, 37,034 verses, from the Patristic Text Archive) and the Latin Vulgate. lxml is used to read and write TEI.</li>
         <li>Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — this is the only external dependency and is free to obtain.</li>
       </ul>
       <div class="api-note">
@@ -471,7 +576,7 @@
         </div>
         <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-mid)">
           <strong style="color:var(--primary-mid)">Bible Book</strong>
-          <p>Find all sources that contain any reference to a chosen Bible book, using a searchable dropdown of all 73 books.</p>
+          <p>Find all sources that contain any reference to a chosen Bible book, using a searchable dropdown of all books of the Greek and Latin corpora.</p>
         </div>
         <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-light)">
           <strong style="color:var(--primary)">Chapter</strong>
@@ -496,7 +601,12 @@
         Key Features
       </h2>
       <ul>
-        <li>Full-text AI analysis using Google Gemini with structured JSON output.</li>
+        <li>Full-text AI analysis using Google Gemini with structured JSON output, chunked for long texts.</li>
+        <li><strong>Greek and Latin</strong> corpora (Septuagint, New Testament, Vulgate); the language of a TEI file is read from <code>xml:lang</code>.</li>
+        <li><strong>TEI import and export</strong> following the PTA encoding guidelines (<code>&lt;quote&gt;</code>, <code>&lt;seg type="allusion"&gt;</code>, <code>&lt;ref decls="#biblical" cRef="…"/&gt;</code>).</li>
+        <li>Existing <code>&lt;quote&gt;</code> elements are checked for biblical references and enriched instead of duplicated.</li>
+        <li>Accent-, breathing-, and case-insensitive matching; every reference is validated, and each quote gets a match score.</li>
+        <li>Export notes list the affected passage with context and location in the file.</li>
         <li>Color-coded in-text annotations with click-to-explore interactivity.</li>
         <li>Selection-based re-analysis: highlight any passage and re-run AI detection on just that section.</li>
         <li>Manual annotation editor with a Bible verse picker (book → chapter → verse).</li>
@@ -506,6 +616,7 @@
         <li>Support for both Gemini API (free tier) and Google Vertex AI.</li>
         <li>Model switching — choose between available Gemini model versions.</li>
         <li>Runs entirely locally — your texts never leave your machine except for the AI API call.</li>
+        <li>Open source: <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">original project</a> (Yale University) · Greek/Latin/TEI version based on it.</li>
       </ul>
     </div>
 
@@ -541,8 +652,9 @@
 
   <!-- Footer -->
   <div style="text-align:center;padding:40px 0 24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border-light);margin-top:40px">
-    Developed by Dr. William J.B. Mattingly · Yale University · 2026<br>
-    Built for the <a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank" style="color:var(--primary-mid)">Ruse of Reuse</a> workshop, Austrian Academy of Sciences, Vienna · March 5–6, 2026
+    Original application developed by Dr. William J.B. Mattingly · Yale University · 2026 · <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener" style="color:var(--primary-mid)">github.com/yale-ch/scripture-detector</a><br>
+    Greek Bible texts and encoding guidelines: <a href="https://pta.bbaw.de" target="_blank" rel="noopener" style="color:var(--primary-mid)">Patristic Text Archive</a> (BBAW) · <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener" style="color:var(--primary-mid)">GitHub</a> · CC BY-SA 4.0<br>
+    This fork developed by Dr. habil. Annette von Stockhausen for use towards the Patristic Text Archive.
   </div>
 </div>
 

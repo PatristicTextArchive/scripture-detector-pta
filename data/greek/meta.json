@@ -1,0 +1,7 @@
+{
+  "language": "Greek",
+  "corpus": "the Greek Bible: the Septuagint (Rahlfs' edition, as digitised by the Patristic Text Archive) and the Greek New Testament",
+  "intro_formulas": "γέγραπται, φησί, φησίν, λέγει, εἶπεν, ἔφη, ἡ γραφὴ λέγει, κατὰ τὸ γεγραμμένον, ὥς φησι, βοᾷ, διδάσκει, παραινεῖ, ψάλλει, ψαλμῳδεῖ, μαρτυρεῖ, κηρύττει, ἀναφωνεῖ, διαμαρτύρεται",
+  "prompt_notes": "The text may be Koine, patristic or Byzantine Greek, polytonic or monotonic, possibly with scribal variation or abbreviated nomina sacra. Old Testament passages must be referenced in their LXX form and LXX versification: Psalms follow the LXX numbering (it differs from the Hebrew numbering by 1); Jeremiah, Job, Proverbs, Esther and Daniel have LXX-specific order and verse numbers. Ezra-Nehemiah is the single book esr (chapters 1-10 = Ezra, 11-23 = Nehemiah); 1 Esdras is 3esr. The books of Kingdoms are 1sa, 2sa, 1ko, 2ko. Daniel (dn), Susanna (sus) and Bel (bel) use the Theodotion text. New Testament passages are referenced by the usual chapter and verse numbers.",
+  "example_refs": "mt_5:9, ps_22:1, 1cor_15:33"
+}

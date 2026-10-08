@@ -1,0 +1,81 @@
+testament	work_name	greek_name	book_code	pta_abbr	pta_corpus
+ot	Genesis	Γένεσις	gn	Gn	LXX
+ot	Exodus	Ἔξοδος	ex	Ex	LXX
+ot	Leviticus	Λευιτικόν	lv	Lv	LXX
+ot	Numbers	Ἀριθμοί	num	Num	LXX
+ot	Deuteronomy	Δευτερονόμιον	dt	Dt	LXX
+ot	Joshua	Ἰησοῦς	jos	Jos	LXX
+ot	Judges	Κριταί	judg	Judg	LXX
+ot	Ruth	Ῥούθ	rt	Rt	LXX
+ot	1 Samuel (1 Kingdoms)	Βασιλειῶν Α	1sa	1Sa	LXX
+ot	2 Samuel (2 Kingdoms)	Βασιλειῶν Β	2sa	2Sa	LXX
+ot	1 Kings (3 Kingdoms)	Βασιλειῶν Γ	1ko	1Ko	LXX
+ot	2 Kings (4 Kingdoms)	Βασιλειῶν Δ	2ko	2Ko	LXX
+ot	1 Chronicles (1 Paralipomena)	Παραλειπομένων Α	1chr	1Chr	LXX
+ot	2 Chronicles (2 Paralipomena)	Παραλειπομένων Β	2chr	2Chr	LXX
+ap	1 Esdras	Ἔσδρας Α	3esr	3Esr	LXX
+ot	Ezra-Nehemiah (2 Esdras; 1-10 Ezra, 11-23 Nehemiah)	Ἔσδρας Β	esr	Esr	LXX
+ot	Esther	Ἐσθήρ	est	Est	LXX
+ap	Judith	Ἰουδίθ	jdt	Jdt	LXX
+ap	Tobit	Τωβίτ	tob	Tob	LXX
+ap	1 Maccabees	Μακκαβαίων Α	1mak	1Mak	LXX
+ap	2 Maccabees	Μακκαβαίων Β	2mak	2Mak	LXX
+ap	3 Maccabees	Μακκαβαίων Γ	3mak	3Mak	LXX
+ap	4 Maccabees	Μακκαβαίων Δ	4mak	4Mak	LXX
+ot	Psalms (LXX numbering, incl. Ps 151)	Ψαλμοί	ps	Ps	LXX
+ap	Odes	Ὠδαί	oden	Oden	LXX
+ot	Proverbs	Παροιμίαι	prov	Prov	LXX
+ot	Ecclesiastes	Ἐκκλησιαστής	eccl	Eccl	LXX
+ot	Song of Songs	Ἆισμα Ἀσμάτων	song	Song	LXX
+ot	Job	Ἰώβ	job	Job	LXX
+ap	Wisdom of Solomon	Σοφία Σαλωμῶντος	wis	Wis	LXX
+ap	Sirach	Σοφία Σιραχ	sir	Sir	LXX
+ap	Psalms of Solomon	Ψαλμοὶ Σαλωμῶντος	pssal	PsSal	LXX
+ot	Hosea	Ὡσηέ	hos	Hos	LXX
+ot	Amos	Ἀμώς	am	Am	LXX
+ot	Micah	Μιχαίας	mi	Mi	LXX
+ot	Joel	Ἰωήλ	joel	Joel	LXX
+ot	Obadiah	Ὀβδιού	ob	Ob	LXX
+ot	Jonah	Ἰωνᾶς	jon	Jon	LXX
+ot	Nahum	Ναούμ	nah	Nah	LXX
+ot	Habakkuk	Ἀμβακούμ	hab	Hab	LXX
+ot	Zephaniah	Σοφονίας	zeph	Zeph	LXX
+ot	Haggai	Ἀγγαῖος	hag	Hag	LXX
+ot	Zechariah	Ζαχαρίας	sach	Sach	LXX
+ot	Malachi	Μαλαχίας	mal	Mal	LXX
+ot	Isaiah	Ἠσαΐας	is	Is	LXX
+ot	Jeremiah	Ἱερεμίας	jr	Jr	LXX
+ap	Baruch	Βαρούχ	bar	Bar	LXX
+ot	Lamentations	Θρῆνοι	lam	Lam	LXX
+ap	Letter of Jeremiah	Ἐπιστολὴ Ἱερεμίου	epistjer	EpistJer	LXX
+ot	Ezekiel	Ἰεζεκιήλ	hes	Hes	LXX
+ap	Susanna	Σουσάννα	sus	Sus	LXX
+ot	Daniel	Δανιήλ	dn	Dn	LXX
+ap	Bel and the Dragon	Βὴλ καὶ Δράκων	bel	Bel	LXX
+nt	Matthew	Κατὰ Ματθαῖον	mt	Mt	NA
+nt	Mark	Κατὰ Μᾶρκον	mk	Mk	NA
+nt	Luke	Κατὰ Λουκᾶν	lk	Lk	NA
+nt	John	Κατὰ Ἰωάννην	jn	Jn	NA
+nt	Acts	Πράξεις Ἀποστόλων	act	Act	NA
+nt	Romans	Πρὸς Ῥωμαίους	rom	Rom	NA
+nt	1 Corinthians	Πρὸς Κορινθίους Α	1cor	1Cor	NA
+nt	2 Corinthians	Πρὸς Κορινθίους Β	2cor	2Cor	NA
+nt	Galatians	Πρὸς Γαλάτας	gal	Gal	NA
+nt	Ephesians	Πρὸς Ἐφεσίους	eph	Eph	NA
+nt	Philippians	Πρὸς Φιλιππησίους	phil	Phil	NA
+nt	Colossians	Πρὸς Κολοσσαεῖς	col	Col	NA
+nt	1 Thessalonians	Πρὸς Θεσσαλονικεῖς Α	1th	1Th	NA
+nt	2 Thessalonians	Πρὸς Θεσσαλονικεῖς Β	2th	2Th	NA
+nt	1 Timothy	Πρὸς Τιμόθεον Α	1tim	1Tim	NA
+nt	2 Timothy	Πρὸς Τιμόθεον Β	2tim	2Tim	NA
+nt	Titus	Πρὸς Τίτον	tt	Tt	NA
+nt	Philemon	Πρὸς Φιλήμονα	phm	Phm	NA
+nt	Hebrews	Πρὸς Ἑβραίους	heb	Heb	NA
+nt	James	Ἰακώβου	jak	Jak	NA
+nt	1 Peter	Πέτρου Α	1p	1P	NA
+nt	2 Peter	Πέτρου Β	2p	2P	NA
+nt	1 John	Ἰωάννου Α	1jn	1Jn	NA
+nt	2 John	Ἰωάννου Β	2jn	2Jn	NA
+nt	3 John	Ἰωάννου Γ	3jn	3Jn	NA
+nt	Jude	Ἰούδα	jud	Jud	NA
+nt	Revelation	Ἀποκάλυψις Ἰωάννου	rev	Rev	NA

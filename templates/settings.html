@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scripture Detector — Settings</title>
+<title>Scripture Detector PTA — Settings</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
+<script src="/static/ui.js"></script>
 <style>
   .container { max-width: 640px; }
 
@@ -47,7 +48,7 @@
   <a href="/" class="header-brand">
     <img src="/static/logo.svg" alt="Logo" class="header-logo">
     <div>
-      <div class="header-title">Scripture Detector</div>
+      <div class="header-title">Scripture Detector PTA</div>
       <div class="header-subtitle">Settings</div>
     </div>
   </a>
@@ -119,13 +120,6 @@
 <script>
 let currentProvider = 'gemini';
 
-function showToast(msg, ok) {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
-}
 
 function selectProvider(p) {
   currentProvider = p;

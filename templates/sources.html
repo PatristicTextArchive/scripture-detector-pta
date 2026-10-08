@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scripture Detector</title>
+<title>Scripture Detector PTA</title>
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="stylesheet" href="/static/style.css">
+<script src="/static/ui.js"></script>
 <style>
 /* ── Toolbar ────────────────────────────────────────────────────────── */
 .toolbar {
@@ -298,7 +299,7 @@
   <a href="/" class="header-brand">
     <img src="/static/logo.svg" alt="Logo" class="header-logo">
     <div>
-      <div class="header-title">Scripture Detector</div>
+      <div class="header-title">Scripture Detector PTA</div>
       <div class="header-subtitle">Scriptural Quote Detection &amp; Analysis</div>
     </div>
   </a>
@@ -318,6 +319,11 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Add Source
     </button>
+    <button class="btn btn-ghost" onclick="importTei()" title="Import one or more TEI files (e.g. PTA editions). Biblical quotations found later are written back into the original file on export.">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import TEI
+    </button>
+    <input type="file" id="tei-file-input" accept=".xml,.tei" multiple style="display:none" onchange="handleTeiUpload(this)">
     <button class="btn btn-ghost" onclick="importZip()" title="Import sources from a ZIP archive exported by Scripture Detector">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Import ZIP
@@ -414,13 +420,6 @@ let isSearching = false;
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-function showToast(msg, ok) {
-  const el = document.createElement('div');
-  el.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
-}
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 const addModal = document.getElementById('add-modal');
@@ -914,7 +913,7 @@ function renderSources(searchResult) {
 
     card.innerHTML = `
       <div class="sc-header">
-        <div class="sc-name">${esc(s.name)}</div>
+        <div class="sc-name">${esc(s.name)}${s.lang ? ` <span style="font-size:10px;font-weight:600;color:var(--text-3,#888);border:1px solid currentColor;border-radius:4px;padding:0 4px;vertical-align:middle" title="Corpus used for detection">${esc(s.lang)}</span>` : ''}</div>
         <div class="sc-date">${new Date(s.created_at).toLocaleDateString()}</div>
       </div>
       <div class="sc-stats">
@@ -982,6 +981,35 @@ function clearAllFilters() {
   document.getElementById('results-info').style.display = 'none';
 }
 
+// ── TEI Import ───────────────────────────────────────────────────────────────
+function importTei() {
+  document.getElementById('tei-file-input').click();
+}
+
+function handleTeiUpload(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  input.value = '';
+  const formData = new FormData();
+  files.forEach(f => formData.append('files', f));
+  showToast(`Importing ${files.length} TEI file${files.length !== 1 ? 's' : ''}…`, true);
+  fetch('/api/import/tei', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error, false); return; }
+      const n = (data.imported || []).length;
+      const bad = (data.errors || []);
+      if (bad.length) {
+        showToast(`Imported ${n} TEI file${n !== 1 ? 's' : ''}, ${bad.length} failed. See the list for details.`, n ? 'warn' : false);
+        showNotice('TEI files that could not be imported', bad.map(b => `${b.file}: ${b.error}`), {kind: 'err'});
+      } else {
+        showToast(`Imported ${n} TEI file${n !== 1 ? 's' : ''}`, true);
+      }
+      if (n) loadAll();
+    })
+    .catch(e => showToast('Import error: ' + e.message, false));
+}
+
 // ── ZIP Import ───────────────────────────────────────────────────────────────
 function importZip() {
   document.getElementById('zip-file-input').click();
@@ -1007,10 +1035,14 @@ function handleZipUpload(input) {
     .then(data => {
       prog.remove();
       if (data.error) { showToast(data.error, false); return; }
-      const errMsg = data.errors && data.errors.length
-        ? `  (${data.errors.length} file${data.errors.length !== 1 ? 's' : ''} failed)`
-        : '';
-      showToast(`Imported ${data.imported} source${data.imported !== 1 ? 's' : ''}${errMsg}`, true);
+      const bad = data.errors || [];
+      const msg = `Imported ${data.imported} source${data.imported !== 1 ? 's' : ''}`;
+      if (bad.length) {
+        showToast(`${msg}, ${bad.length} file${bad.length !== 1 ? 's' : ''} failed. See the list for details.`, 'warn');
+        showNotice('Files that could not be imported', bad.map(b => `${b.file}: ${b.error}`), {kind: 'err'});
+      } else {
+        showToast(msg, true);
+      }
       loadAll();
     })
     .catch(e => { prog.remove(); showToast('Import error: ' + e.message, false); });

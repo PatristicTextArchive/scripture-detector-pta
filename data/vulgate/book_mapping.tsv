@@ -1,0 +1,74 @@
+testament	work_name	greek_name	book_code	pta_abbr	pta_corpus
+ot	Genesis		gen	Gn	Vg
+ot	Exodus		exod	Ex	Vg
+ot	Leviticus		lev	Lv	Vg
+ot	Numeri		num	Num	Vg
+ot	Deuteronomium		deut	Dt	Vg
+ot	Iosue		josh	Jos	Vg
+ot	Iudicum		judg	Judg	Vg
+ot	Ruth		ruth	Rt	Vg
+ot	I Samuelis		1sam	1Sa	Vg
+ot	II Samuelis		2sam	2Sa	Vg
+ot	I Regum		1kgs	1Ko	Vg
+ot	II Regum		2kgs	2Ko	Vg
+ot	I Paralipomenon		1chr	1Chr	Vg
+ot	II Paralipomenon		2chr	2Chr	Vg
+ot	Esdrae		ezra	Esr	Vg
+ot	Nehemiae		neh	Neh	Vg
+ap	Tobiae		tob	Tob	Vg
+ap	Iudith		jdt	Jdt	Vg
+ot	Esther		esth	Est	Vg
+ap	I Machabaeorum		1macc	1Mak	Vg
+ap	II Machabaeorum		2macc	2Mak	Vg
+ot	Iob		job	Job	Vg
+ot	Psalmi		ps	Ps	Vg
+ot	Proverbia		prov	Prov	Vg
+ot	Ecclesiastes		eccl	Eccl	Vg
+ot	Canticum Canticorum		song	Song	Vg
+ap	Sapientia		wis	Wis	Vg
+ap	Ecclesiasticus		sir	Sir	Vg
+ot	Isaias		isa	Is	Vg
+ot	Ieremias		jer	Jr	Vg
+ot	Lamentationes		lam	Lam	Vg
+ap	Baruch		bar	Bar	Vg
+ot	Ezechiel		ezek	Hes	Vg
+ot	Daniel		dan	Dn	Vg
+ot	Osee		hos	Hos	Vg
+ot	Ioel		joel	Joel	Vg
+ot	Amos		amos	Am	Vg
+ot	Abdias		obad	Ob	Vg
+ot	Ionas		jonah	Jon	Vg
+ot	Michaeas		mic	Mi	Vg
+ot	Nahum		nah	Nah	Vg
+ot	Habacuc		hab	Hab	Vg
+ot	Sophonias		zeph	Zeph	Vg
+ot	Aggaeus		hag	Hag	Vg
+ot	Zacharias		zech	Sach	Vg
+ot	Malachias		mal	Mal	Vg
+nt	Matthaeus		matt	Mt	Vg
+nt	Marcus		mark	Mk	Vg
+nt	Lucas		luke	Lk	Vg
+nt	Ioannes		john	Jn	Vg
+nt	Actus Apostolorum		acts	Act	Vg
+nt	Romanos		rom	Rom	Vg
+nt	I Corinthios		1cor	1Cor	Vg
+nt	II Corinthios		2cor	2Cor	Vg
+nt	Galatas		gal	Gal	Vg
+nt	Ephesios		eph	Eph	Vg
+nt	Philippenses		phil	Phil	Vg
+nt	Colossenses		col	Col	Vg
+nt	I Thessalonicenses		1thess	1Th	Vg
+nt	II Thessalonicenses		2thess	2Th	Vg
+nt	I Timotheum		1tim	1Tim	Vg
+nt	II Timotheum		2tim	2Tim	Vg
+nt	Titum		titus	Tt	Vg
+nt	Philemonem		phlm	Phm	Vg
+nt	Hebraeos		heb	Heb	Vg
+nt	Iacobi		jas	Jak	Vg
+nt	I Petri		1pet	1P	Vg
+nt	II Petri		2pet	2P	Vg
+nt	I Ioannis		1john	1Jn	Vg
+nt	II Ioannis		2john	2Jn	Vg
+nt	III Ioannis		3john	3Jn	Vg
+nt	Iudae		jude	Jud	Vg
+nt	Apocalypsis		rev	Rev	Vg

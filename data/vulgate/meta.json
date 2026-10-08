@@ -1,0 +1,7 @@
+{
+  "language": "Latin",
+  "corpus": "the Latin Vulgate Bible",
+  "intro_formulas": "scriptum est, sicut scriptum est, secundum quod scriptum est, dicit scriptura, dicit, ait, inquit, loquitur, testatur, clamat, psallit, canit, docet, monet, praedicat, prophetat, apostolus dicit, propheta dicit",
+  "prompt_notes": "The text may be patristic or medieval Latin with variant orthography, and may quote the Bible in pre-Vulgate (Vetus Latina) wording or from memory. Quotations must be referenced in Vulgate form and Vulgate numbering (Psalms follow the Vulgate/LXX numbering, which differs from the Hebrew numbering by 1). Ezra and Nehemiah are the separate books ezra and neh.",
+  "example_refs": "matt_5:9, ps_22:1, 1cor_15:33"
+}

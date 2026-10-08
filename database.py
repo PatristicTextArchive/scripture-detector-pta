@@ -36,6 +36,8 @@ _SCHEMA_SQL = """
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         text TEXT NOT NULL,
+        tei_xml BLOB,
+        lang TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
@@ -47,6 +49,8 @@ _SCHEMA_SQL = """
         quote_text TEXT NOT NULL,
         quote_type TEXT NOT NULL DEFAULT 'allusion'
             CHECK(quote_type IN ('full','partial','paraphrase','allusion')),
+        score REAL,
+        marked INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
@@ -65,12 +69,28 @@ _SCHEMA_SQL = """
 """
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Add columns introduced after the first release to existing databases."""
+    def cols(table: str) -> set[str]:
+        return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if "tei_xml" not in cols("sources"):
+        conn.execute("ALTER TABLE sources ADD COLUMN tei_xml BLOB")
+    if "lang" not in cols("sources"):
+        conn.execute("ALTER TABLE sources ADD COLUMN lang TEXT")
+    q = cols("quotes")
+    if "score" not in q:
+        conn.execute("ALTER TABLE quotes ADD COLUMN score REAL")
+    if "marked" not in q:
+        conn.execute("ALTER TABLE quotes ADD COLUMN marked INTEGER")
+
+
 def _new_session_conn() -> sqlite3.Connection:
     """Create a fresh in-memory SQLite connection with the full schema."""
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(_SCHEMA_SQL)
+    _migrate(conn)
     conn.commit()
     return conn
 
@@ -135,6 +155,7 @@ def init_db():
         return
     with get_db() as conn:
         conn.executescript(_SCHEMA_SQL)
+        _migrate(conn)
 
 
 def extract_book_code(reference: str) -> str:
@@ -144,10 +165,11 @@ def extract_book_code(reference: str) -> str:
 
 # ── Sources ──────────────────────────────────────────────────────────────────
 
-def create_source(name: str, text: str) -> int:
+def create_source(name: str, text: str, tei_xml: bytes | None = None, lang: str | None = None) -> int:
     with get_db() as conn:
         cur = conn.execute(
-            "INSERT INTO sources (name, text) VALUES (?, ?)", (name, text)
+            "INSERT INTO sources (name, text, tei_xml, lang) VALUES (?, ?, ?, ?)",
+            (name, text, tei_xml, lang),
         )
         return cur.lastrowid
 
@@ -165,6 +187,8 @@ def get_all_sources() -> list[dict]:
         rows = conn.execute(
             """SELECT s.id, s.name, s.created_at, s.updated_at,
                       LENGTH(s.text) as text_length,
+                      (s.tei_xml IS NOT NULL) as is_tei,
+                      s.lang as lang,
                       COUNT(q.id) as quote_count
                FROM sources s
                LEFT JOIN quotes q ON q.source_id = s.id
@@ -188,12 +212,16 @@ def add_quote(
     quote_text: str,
     quote_type: str,
     references: list[str],
+    score: float | None = None,
+    marked: bool | None = None,
 ) -> int:
     with get_db() as conn:
         cur = conn.execute(
-            """INSERT INTO quotes (source_id, span_start, span_end, quote_text, quote_type)
-               VALUES (?, ?, ?, ?, ?)""",
-            (source_id, span_start, span_end, quote_text, quote_type),
+            """INSERT INTO quotes (source_id, span_start, span_end, quote_text,
+                                   quote_type, score, marked)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (source_id, span_start, span_end, quote_text, quote_type, score,
+             None if marked is None else int(bool(marked))),
         )
         quote_id = cur.lastrowid
         for ref in references:
@@ -213,8 +241,14 @@ def update_quote(
     span_start: int = None,
     span_end: int = None,
     references: list[str] = None,
+    score: float = None,
+    marked: bool = None,
 ):
     with get_db() as conn:
+        if score is not None:
+            conn.execute("UPDATE quotes SET score=? WHERE id=?", (score, quote_id))
+        if marked is not None:
+            conn.execute("UPDATE quotes SET marked=? WHERE id=?", (int(bool(marked)), quote_id))
         if quote_text is not None:
             conn.execute(
                 "UPDATE quotes SET quote_text=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
@@ -469,7 +503,7 @@ def search_sources(filters: list[dict], logic: str = "AND") -> dict:
         # --- fetch source rows with aggregate stats --------------------------
         placeholders = ",".join("?" * len(matching))
         src_rows = conn.execute(
-            f"""SELECT s.id, s.name, s.created_at,
+            f"""SELECT s.id, s.name, s.lang, s.created_at,
                        COUNT(q.id) as quote_count
                 FROM sources s
                 LEFT JOIN quotes q ON q.source_id = s.id
@@ -527,7 +561,7 @@ def get_dashboard_data() -> dict:
         ref_count = conn.execute("SELECT COUNT(*) as c FROM quote_references").fetchone()["c"]
 
         sources = conn.execute(
-            """SELECT s.id, s.name, s.created_at,
+            """SELECT s.id, s.name, s.lang, s.created_at,
                       COUNT(q.id) as quote_count
                FROM sources s
                LEFT JOIN quotes q ON q.source_id = s.id
@@ -540,3 +574,9 @@ def get_dashboard_data() -> dict:
             "reference_count": ref_count,
             "sources": [dict(s) for s in sources],
         }
+
+
+def get_quote_source_id(quote_id: int) -> int | None:
+    with get_db() as conn:
+        row = conn.execute("SELECT source_id FROM quotes WHERE id = ?", (quote_id,)).fetchone()
+        return row["source_id"] if row else None

@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 PROBLEMS_DIR = PROJECT_ROOT / "data" / "task" / "problems"
 SOLUTIONS_DIR = PROJECT_ROOT / "data" / "task" / "solutions"
 REFERENCE_MAPPING_PATH = PROJECT_ROOT / "data" / "reference_mapping.json"
-BIBLE_TSV_PATH = PROJECT_ROOT / "data" / "bible.tsv"
+BIBLE_TSV_PATH = PROJECT_ROOT / "data" / "vulgate" / "bible.tsv"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 
 console = Console()
