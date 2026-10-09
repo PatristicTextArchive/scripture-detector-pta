@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 import re
+import time
 import uuid
 import zipfile
 from datetime import date
@@ -37,6 +38,7 @@ from collections import OrderedDict
 import corpora
 import gemini_limits
 import greek
+import llm_backends
 import tei_doc
 
 app = Flask(__name__)
@@ -79,7 +81,9 @@ def _bind_session_db():
     database.session_local.session_id = session["_db_sid"]
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-CHUNK_CHARS = int(os.environ.get("SD_CHUNK_CHARS", "12000"))
+CHUNK_CHARS = int(os.environ.get("SD_CHUNK_CHARS", "12000"))              # Gemini / Vertex
+LOCAL_CHUNK_CHARS = int(os.environ.get("SD_LOCAL_CHUNK_CHARS", "3500"))   # local models: small context windows
+LOCAL_PROVIDERS = ("openai", "llamacpp")
 
 MODELS = [
     {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash"},
@@ -127,6 +131,36 @@ def get_max_rpm() -> int:
         return 5
 
 
+def get_provider() -> str:
+    return get_setting("api_provider", "gemini")
+
+
+def is_local() -> bool:
+    return get_provider() in LOCAL_PROVIDERS
+
+
+def model_label() -> str:
+    """Short name of the active model (shown in the viewer, part of the resume-cache key)."""
+    s = get_all_settings()
+    prov = s.get("api_provider", "gemini")
+    if prov == "openai":
+        return f"openai:{s.get('local_base_url', '')}:{s.get('local_model', '')}"
+    if prov == "llamacpp":
+        return f"llamacpp:{Path(s.get('gguf_path', '')).name}"
+    return get_model()
+
+
+def get_chunk_chars() -> int:
+    """Size of the text parts sent to the model: Settings, else a default per provider."""
+    try:
+        v = int(float(get_setting("chunk_chars", "")))
+        if v >= 500:
+            return v
+    except (TypeError, ValueError):
+        pass
+    return LOCAL_CHUNK_CHARS if is_local() else CHUNK_CHARS
+
+
 def _limit_key() -> str:
     s = get_all_settings()
     ident = s.get("vertex_project_id", "") if s.get("api_provider") == "vertex" else s.get("gemini_api_key", "")
@@ -137,7 +171,8 @@ def get_model() -> str:
     return get_setting("model", "gemini-3.8-flash")
 
 
-def build_prompt(text: str, corpus: "corpora.Corpus", hints: list[str] | None = None) -> str:
+def build_prompt(text: str, corpus: "corpora.Corpus", hints: list[str] | None = None,
+                 json_hint: bool = False) -> str:
     meta = corpus.meta
     def label(v):
         extra = f" / {v['greek_name']}" if v.get("greek_name") else ""
@@ -191,16 +226,14 @@ Important:
 - Be thorough — identify even brief allusions to specific verses, but do not invent references: only report passages you can tie to specific verses.
 - The extracted text must be a verbatim substring of the input document.
 
+{llm_backends.FORMAT_HINT if json_hint else ""}
 TEXT:
 {text}"""
 
 
-def extract_quotes_with_gemini(text: str, lang: str = corpora.DEFAULT_LANG,
-                               hints: list[str] | None = None) -> list[dict]:
+def _generate_gemini(prompt: str) -> "llm_backends.Result":
     client = get_genai_client()
     model = get_model()
-    prompt = build_prompt(text, corpora.get_corpus(lang), hints)
-
     response_schema = {
         "type": "ARRAY",
         "items": {
@@ -228,7 +261,6 @@ def extract_quotes_with_gemini(text: str, lang: str = corpora.DEFAULT_LANG,
             "required": ["text", "resolved_references", "quote_type"],
         },
     }
-
     response = gemini_limits.call_with_retry(
         lambda: client.models.generate_content(
             model=model,
@@ -241,8 +273,34 @@ def extract_quotes_with_gemini(text: str, lang: str = corpora.DEFAULT_LANG,
         key=_limit_key(),
         rpm=get_max_rpm(),
     )
+    return llm_backends.Result(response.text)
 
-    quotes = json.loads(response.text)
+
+def generate(prompt: str) -> "llm_backends.Result":
+    """One model call with the provider selected in Settings."""
+    provider = get_provider()
+    if provider in LOCAL_PROVIDERS:
+        return llm_backends.make_backend(provider, get_all_settings()).generate(prompt)
+    return _generate_gemini(prompt)
+
+
+def extract_quotes(text: str, lang: str = corpora.DEFAULT_LANG, hints: list[str] | None = None,
+                   _depth: int = 0) -> list[dict]:
+    """Ask the model for the biblical passages in *text*.  If a local model hits
+    its output limit, the text is split in parts and each part is analysed."""
+    prompt = build_prompt(text, corpora.get_corpus(lang), hints, json_hint=is_local())
+    result = generate(prompt)
+    quotes = llm_backends.parse_quotes(result.text)
+    if result.truncated and len(text) > 600 and _depth < 3:
+        merged: list[dict] = []
+        seen: set = set()
+        for part in greek.split_in_two(text):
+            for q in extract_quotes(part, lang, [h for h in (hints or []) if h in part], _depth + 1):
+                key = (q["text"].strip(), tuple(q["resolved_references"]))
+                if key not in seen:               # the parts overlap a little
+                    seen.add(key)
+                    merged.append(q)
+        return merged
     for q in quotes:
         q["resolved_references"] = greek.expand_ranges(q.get("resolved_references", []))
     return quotes
@@ -292,8 +350,8 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
     not clear, the finished chunks are kept for the next run and the raised
     ``GeminiLimitError`` reports ``done``/``total``."""
     corpus = corpora.get_corpus(lang)
-    model = get_model()
-    chunks = [(a, b) for a, b in greek.chunk_text(text, CHUNK_CHARS) if text[a:b].strip()]
+    model = model_label()
+    chunks = [(a, b) for a, b in greek.chunk_text(text, get_chunk_chars()) if text[a:b].strip()]
     found: list[dict] = []
     keys: list[str] = []
     for i, (start, end) in enumerate(chunks):
@@ -305,7 +363,7 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
         quotes = _partial.get(key)
         if quotes is None:
             try:
-                quotes = extract_quotes_with_gemini(chunk, lang, chunk_hints)
+                quotes = extract_quotes(chunk, lang, chunk_hints)
             except gemini_limits.GeminiLimitError as exc:
                 exc.done, exc.total = i, len(chunks)
                 raise
@@ -372,7 +430,7 @@ def viewer(source_id: int):
     settings = get_all_settings()
     current_model = settings.get("model", "gemini-3-pro-preview")
     return render_template("viewer.html", source=source, models=MODELS, current_model=current_model,
-                           source_lang=source_lang(source))
+                           source_lang=source_lang(source), local_model=is_local(), model_label=model_label())
 
 
 @app.route("/settings")
@@ -804,6 +862,20 @@ def api_source_distribution(source_id: int):
 
 # ── API: Settings ────────────────────────────────────────────────────────────
 
+@app.route("/api/test-backend", methods=["POST"])
+def api_test_backend():
+    """Send a tiny request with the saved settings to check the connection."""
+    started = time.monotonic()
+    try:
+        result = generate('Reply with exactly this JSON and nothing else: {"quotes": []}')
+    except gemini_limits.GeminiLimitError as e:
+        return jsonify({"error": e.user_message()}), 429
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"status": "ok", "provider": get_provider(), "model": model_label(),
+                    "seconds": round(time.monotonic() - started, 1), "reply": (result.text or "")[:200]})
+
+
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     settings = get_all_settings()
@@ -818,9 +890,10 @@ def api_get_settings():
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
     body = request.get_json()
+    clearable = {"local_model", "local_api_key", "chunk_chars", "gguf_path"}      # may be emptied again
     for key, value in body.items():
-        if value is not None and str(value).strip() != "":
-            set_setting(key, str(value))
+        if value is not None and (str(value).strip() != "" or key in clearable):
+            set_setting(key, str(value).strip() if key in clearable else str(value))
     return jsonify({"status": "ok"})
 
 

@@ -329,7 +329,7 @@
   <h1>Scripture Detector</h1>
   <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in Greek and Latin texts — with TEI import and export following the encoding guidelines of the Patristic Text Archive.</p>
   <div class="hero-badges">
-    <span class="hero-badge"><span class="dot"></span>Powered by Google Gemini</span>
+    <span class="hero-badge"><span class="dot"></span>Google Gemini or local models</span>
     <span class="hero-badge"><span class="dot"></span>Greek &amp; Latin</span>
     <span class="hero-badge"><span class="dot"></span>TEI · PTA encoding</span>
     <span class="hero-badge"><span class="dot"></span>Yale University (original)</span>
@@ -421,8 +421,8 @@
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-body">
-            <h3>AI Detection via Google Gemini</h3>
-            <p>Click "Process with AI" to send the text to Google Gemini with a carefully engineered prompt. The prompt names the Bible corpus of the text's language and lists typical introductory formulas (such as <em>γέγραπται, φησίν, λέγει</em>; <em>scriptum est, ait, inquit</em>). Passages already marked as <code>&lt;quote&gt;</code> in a TEI file are passed on as hints. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Long texts are analyzed in chunks.</p>
+            <h3>AI Detection (Gemini or a local model)</h3>
+            <p>Click "Process with AI" to send the text to the model selected in Settings — Google Gemini or a local model — with a carefully engineered prompt. The prompt names the Bible corpus of the text's language and lists typical introductory formulas (such as <em>γέγραπται, φησίν, λέγει</em>; <em>scriptum est, ait, inquit</em>). Passages already marked as <code>&lt;quote&gt;</code> in a TEI file are passed on as hints. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Long texts are analyzed in chunks.</p>
           </div>
         </div>
         <div class="step">
@@ -545,15 +545,16 @@
         <li>Python 3.10+ with Flask — the entire backend runs as a lightweight local web application.</li>
         <li>SQLite — all sources, annotations, and settings are stored in a local database with no external server required.</li>
         <li>Bible verse databases are included and used for verse lookup, reference validation, and match scores: the Greek Bible (Septuagint and New Testament, 37,034 verses, from the Patristic Text Archive) and the Latin Vulgate. lxml is used to read and write TEI.</li>
-        <li>Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — this is the only external dependency and is free to obtain.</li>
+        <li>A model: either Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — or a <strong>local model</strong> (see below), so that no external service is needed at all.</li>
       </ul>
       <div class="api-note">
         <div class="api-note-icon">🔑</div>
         <p>
-          <strong>Only a free Gemini API key is required.</strong> Get yours at
+          <strong>A free Gemini API key is enough to start.</strong> Get yours at
           <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>
-          and enter it in the <a href="/settings">Settings</a> page to start using the app immediately.
-          No cloud account, credit card, or additional setup is needed.
+          and enter it in the <a href="/settings">Settings</a> page. Alternatively choose <em>Local server</em> or
+          <em>Local model file</em> there to run Qwen, Gemma, or another model on your own machine (smaller models
+          find fewer passages and make more mistakes; references are always checked against the verse database).
         </p>
       </div>
     </div>
@@ -613,8 +614,9 @@
         <li><strong>Advanced search</strong> with real-time filtering by text content, Bible book, chapter, or verse — stackable filters with AND / OR logic and inline match evidence.</li>
         <li>Distribution charts showing which Bible books and testaments are most referenced.</li>
         <li>Global analytics dashboard across all sources.</li>
-        <li>Support for both Gemini API (free tier) and Google Vertex AI.</li>
-        <li>Model switching — choose between available Gemini model versions.</li>
+        <li>Support for the Gemini API (free tier), Google Vertex AI, and <strong>local models</strong>: any OpenAI-compatible server (llama.cpp <code>llama-server</code>, vLLM, LM Studio, …) or a GGUF file loaded directly with <code>llama-cpp-python</code> — no Ollama required.</li>
+        <li>Request rate limiting and automatic retries for Gemini; interrupted runs continue where they stopped.</li>
+        <li>Model switching — choose between available Gemini model versions, or configure a local model and test the connection in Settings.</li>
         <li>Runs entirely locally — your texts never leave your machine except for the AI API call.</li>
         <li>Open source: <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">original project</a> (Yale University) · Greek/Latin/TEI version based on it.</li>
       </ul>

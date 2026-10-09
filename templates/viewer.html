@@ -313,11 +313,11 @@
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Export TEI
   </a>
-  <select class="select-styled" id="model-select">
+  {% if not local_model %}<select class="select-styled" id="model-select">
     {% for m in models %}
     <option value="{{ m.id }}" {{ 'selected' if m.id == current_model else '' }}>{{ m.name }}</option>
     {% endfor %}
-  </select>
+  </select>{% else %}<span class="btn btn-ghost" style="cursor:default" title="Local model - change it in Settings">{{ model_label }}</span>{% endif %}
   <button class="btn btn-ghost" id="add-quote-btn" onclick="openAddModal()">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     Add Quote
@@ -449,7 +449,8 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-document.getElementById('model-select').addEventListener('change', e => {
+const _ms = document.getElementById('model-select');
+if (_ms) _ms.addEventListener('change', e => {
   fetch('/api/settings', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},

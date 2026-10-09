@@ -12,7 +12,9 @@
 
   .card { margin-bottom: 20px; }
 
-  .radio-group { display: flex; gap: 12px; margin-bottom: 18px; }
+  .radio-group { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .radio-group .radio-card { flex: 1 1 200px; }
+  .field .hint code { font-size: .78rem; background: var(--border-light); padding: 1px 4px; border-radius: 4px; }
   .radio-card {
     flex: 1;
     padding: 18px;
@@ -76,6 +78,16 @@
         <div class="rc-title">Vertex AI</div>
         <div class="rc-desc">Google Cloud Project</div>
       </label>
+      <label class="radio-card" id="rc-openai" onclick="selectProvider('openai')">
+        <input type="radio" name="provider" value="openai">
+        <div class="rc-title">Local server</div>
+        <div class="rc-desc">OpenAI-compatible: llama.cpp, vLLM, LM Studio …</div>
+      </label>
+      <label class="radio-card" id="rc-llamacpp" onclick="selectProvider('llamacpp')">
+        <input type="radio" name="provider" value="llamacpp">
+        <div class="rc-title">Local model file</div>
+        <div class="rc-desc">GGUF loaded directly (llama-cpp-python), no server</div>
+      </label>
     </div>
 
     <div class="conditional" id="gemini-fields">
@@ -97,9 +109,64 @@
         <div class="hint">e.g. global, us-central1, europe-west1</div>
       </div>
     </div>
+
+    <div class="conditional" id="openai-fields">
+      <div class="field">
+        <label for="local-base-url">Server URL</label>
+        <input type="text" id="local-base-url" placeholder="http://127.0.0.1:8080/v1" value="http://127.0.0.1:8080/v1">
+        <div class="hint">llama.cpp: <code>llama-server -m model.gguf --port 8080 -c 16384</code> → <code>http://127.0.0.1:8080/v1</code> ·
+          vLLM: <code>http://127.0.0.1:8000/v1</code> · LM Studio: <code>http://127.0.0.1:1234/v1</code></div>
+      </div>
+      <div class="field">
+        <label for="local-model">Model name</label>
+        <input type="text" id="local-model" placeholder="e.g. Qwen/Qwen3-14B">
+        <div class="hint">Optional for llama-server (it serves one model); required by vLLM and LM Studio.</div>
+      </div>
+      <div class="field">
+        <label for="local-api-key">API key (optional)</label>
+        <input type="password" id="local-api-key" placeholder="only if the server requires one">
+      </div>
+      <div class="field">
+        <label for="local-structured">Constrain the answer to JSON</label>
+        <select id="local-structured">
+          <option value="auto">auto (recommended)</option>
+          <option value="off">off (server does not support it)</option>
+        </select>
+        <div class="hint">With <em>auto</em> the server is asked to follow a JSON schema; if it refuses, the app continues without.</div>
+      </div>
+      <div class="field">
+        <label for="local-timeout">Timeout per request (seconds)</label>
+        <input type="number" id="local-timeout" min="30" step="30" value="600" style="max-width:140px">
+      </div>
+    </div>
+
+    <div class="conditional" id="llamacpp-fields">
+      <div class="field">
+        <label for="gguf-path">GGUF model file</label>
+        <input type="text" id="gguf-path" placeholder="/models/Qwen3-14B-Q4_K_M.gguf">
+        <div class="hint">Needs <code>pip install llama-cpp-python</code> (GPU builds: see the README). Qwen, Gemma, Llama, Mistral … as GGUF.</div>
+      </div>
+      <div class="field">
+        <label for="n-ctx">Context size (n_ctx)</label>
+        <input type="number" id="n-ctx" min="2048" step="1024" value="8192" style="max-width:140px">
+      </div>
+      <div class="field">
+        <label for="n-gpu-layers">Layers on the GPU (n_gpu_layers)</label>
+        <input type="number" id="n-gpu-layers" min="-1" step="1" value="-1" style="max-width:140px">
+        <div class="hint">-1 = all (if llama-cpp-python was built with GPU support), 0 = CPU only.</div>
+      </div>
+    </div>
+
+    <div class="conditional" id="local-common-fields">
+      <div class="field">
+        <label for="local-max-tokens">Max. answer length (tokens)</label>
+        <input type="number" id="local-max-tokens" min="256" step="256" value="4096" style="max-width:140px">
+        <div class="hint">If an answer is cut off, the text part is split automatically and analysed again.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="card-gemini-model">
     <h2>Model Selection</h2>
     <div class="field">
       <label for="model-select">Model</label>
@@ -120,8 +187,20 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>Text Parts</h2>
+    <div class="field">
+      <label for="chunk-chars">Characters per request</label>
+      <input type="number" id="chunk-chars" min="500" step="500" placeholder="default" style="max-width:160px">
+      <div class="hint">Long texts are sent in parts. Default: about 12,000 for Gemini and 3,500 for local models
+        (Greek needs many tokens per word: keep the part plus the answer within the model's context window).
+        Leave empty for the default.</div>
+    </div>
+  </div>
+
   <div class="actions">
     <span id="save-status"></span>
+    <button class="btn btn-ghost" id="test-btn" onclick="testBackend()">Save &amp; test connection</button>
     <button class="btn btn-primary" id="save-btn" onclick="saveSettings()">Save Settings</button>
   </div>
 </div>
@@ -130,13 +209,19 @@
 let currentProvider = 'gemini';
 
 
+const PROVIDERS = ['gemini', 'vertex', 'openai', 'llamacpp'];
 function selectProvider(p) {
   currentProvider = p;
-  document.getElementById('rc-gemini').classList.toggle('selected', p === 'gemini');
-  document.getElementById('rc-vertex').classList.toggle('selected', p === 'vertex');
-  document.getElementById('gemini-fields').classList.toggle('visible', p === 'gemini');
-  document.getElementById('vertex-fields').classList.toggle('visible', p === 'vertex');
+  PROVIDERS.forEach(x => {
+    document.getElementById('rc-' + x).classList.toggle('selected', p === x);
+    const f = document.getElementById(x === 'gemini' ? 'gemini-fields' : x + '-fields');
+    if (f) f.classList.toggle('visible', p === x);
+  });
+  const local = (p === 'openai' || p === 'llamacpp');
+  document.getElementById('local-common-fields').classList.toggle('visible', local);
+  document.getElementById('card-gemini-model').style.display = local ? 'none' : '';
 }
+const val = id => document.getElementById(id).value.trim();
 
 function loadSettings() {
   fetch('/api/settings')
@@ -149,7 +234,27 @@ function loadSettings() {
       if (s.vertex_location) document.getElementById('location').value = s.vertex_location;
       if (s.model) document.getElementById('model-select').value = s.model;
       if (s.max_rpm !== undefined) document.getElementById('max-rpm').value = s.max_rpm;
+      const set = (id, v) => { if (v !== undefined && v !== '') document.getElementById(id).value = v; };
+      set('local-base-url', s.local_base_url); set('local-model', s.local_model); set('local-api-key', s.local_api_key);
+      set('local-structured', s.local_structured); set('local-timeout', s.local_timeout);
+      set('gguf-path', s.gguf_path); set('n-ctx', s.n_ctx); set('n-gpu-layers', s.n_gpu_layers);
+      set('local-max-tokens', s.local_max_tokens); set('chunk-chars', s.chunk_chars);
     });
+}
+
+function testBackend() {
+  const btn = document.getElementById('test-btn');
+  btn.disabled = true;
+  btn.textContent = 'Testing …';
+  saveSettings()
+    .then(() => fetch('/api/test-backend', {method: 'POST'}))
+    .then(async r => ({ok: r.ok, data: await r.json().catch(() => ({}))}))
+    .then(({ok, data}) => {
+      if (ok) showToast(`Connection OK: ${data.model} answered in ${data.seconds} s`, true);
+      else showNotice('Connection test failed', [data.error || 'Unknown error'], {kind: 'err'});
+    })
+    .catch(e => showToast('Error: ' + e.message, false))
+    .finally(() => { btn.disabled = false; btn.textContent = 'Save & test connection'; });
 }
 
 function saveSettings() {
@@ -160,14 +265,26 @@ function saveSettings() {
     model: document.getElementById('model-select').value,
     max_rpm: document.getElementById('max-rpm').value.trim() === '' ? '5' : document.getElementById('max-rpm').value.trim(),
   };
-  if (currentProvider === 'gemini') {
+  payload.chunk_chars = val('chunk-chars');
+  if (currentProvider === 'openai') {
+    Object.assign(payload, {
+      local_base_url: val('local-base-url'), local_model: val('local-model'), local_api_key: val('local-api-key'),
+      local_structured: val('local-structured'), local_timeout: val('local-timeout'),
+      local_max_tokens: val('local-max-tokens'),
+    });
+  } else if (currentProvider === 'llamacpp') {
+    Object.assign(payload, {
+      gguf_path: val('gguf-path'), n_ctx: val('n-ctx'), n_gpu_layers: val('n-gpu-layers'),
+      local_max_tokens: val('local-max-tokens'),
+    });
+  } else if (currentProvider === 'gemini') {
     const key = document.getElementById('api-key').value.trim();
     if (key) payload.gemini_api_key = key;
   } else {
     payload.vertex_project_id = document.getElementById('project-id').value.trim();
     payload.vertex_location = document.getElementById('location').value.trim() || 'global';
   }
-  fetch('/api/settings', {
+  return fetch('/api/settings', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload),

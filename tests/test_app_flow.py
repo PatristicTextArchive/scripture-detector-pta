@@ -39,7 +39,7 @@ def client(monkeypatch):
             {"text": PS_62_9, "resolved_references": ["ps_62:9"], "quote_type": "partial", "marked": False},
             {"text": "nur erfunden", "resolved_references": ["mt_999:1"], "quote_type": "allusion"},
         ]
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake_gemini)
+    monkeypatch.setattr(sd, "extract_quotes", fake_gemini)
     sd.app.config["TESTING"] = True
     return sd.app.test_client()
 
@@ -146,7 +146,7 @@ def test_existing_quotes_are_hints_and_get_only_refs(client, monkeypatch):
         seen.update(lang=lang, hints=hints)
         return [{"text": MT_5_9, "resolved_references": ["mt_5:9"], "quote_type": "full", "marked": True}]
 
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    monkeypatch.setattr(sd, "extract_quotes", fake)
     sid = client.post("/api/import/tei", data={"files": (io.BytesIO(TEI_QUOTE), "q.xml")},
                       content_type="multipart/form-data").get_json()["imported"][0]["id"]
     assert client.post(f"/api/sources/{sid}/process").get_json()["count"] == 1
@@ -175,7 +175,7 @@ def test_latin_tei_uses_vulgate_and_vg_prefix(client, monkeypatch):
         return [{"text": LAT, "resolved_references": ["gen_1:1", "mt_5:9", "gen_1:999"],
                  "quote_type": "full", "marked": True}]
 
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    monkeypatch.setattr(sd, "extract_quotes", fake)
     r = client.post("/api/import/tei", data={"files": (io.BytesIO(TEI_LAT), "lat.xml")},
                     content_type="multipart/form-data").get_json()
     assert r["imported"][0]["lang"] == "lat"
@@ -212,7 +212,7 @@ def test_unsupported_language_is_rejected_and_paste_is_detected(client):
 def test_latin_paste_exports_skeleton_with_lat(client, monkeypatch):
     def fake(text, lang="grc", hints=None):
         return [{"text": LAT, "resolved_references": ["gen_1:1"], "quote_type": "full"}]
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    monkeypatch.setattr(sd, "extract_quotes", fake)
     sid = client.post("/api/sources", json={"name": "P", "text": f"Dicit: {LAT}. Amen."}).get_json()["id"]
     client.post(f"/api/sources/{sid}/process")
     s = client.get(f"/api/sources/{sid}/export/tei").data.decode()
@@ -230,7 +230,7 @@ def test_export_json_returns_all_warnings_and_xml(client, monkeypatch):
     tei = TEI.replace(b"pta0001.pta001.pta-grc1", b"pta0013.pta003.pta-MsPs")
     sid = client.post("/api/import/tei", data={"files": (io.BytesIO(tei), "ms.xml")},
                       content_type="multipart/form-data").get_json()["imported"][0]["id"]
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", lambda t, lang="grc", hints=None: [
+    monkeypatch.setattr(sd, "extract_quotes", lambda t, lang="grc", hints=None: [
         {"text": PS_62_9, "resolved_references": ["ps_62:9"], "quote_type": "full"}])
     client.post(f"/api/sources/{sid}/process")
     r = client.get(f"/api/sources/{sid}/export/tei?json=1")
@@ -271,7 +271,7 @@ def test_interrupted_run_resumes_without_repeating_requests(client, monkeypatch)
             raise gemini_limits.RateLimited("429", retry_after=30, attempts=6, rpm=5)
         return [{"text": PS_62_9, "resolved_references": ["ps_62:9"], "quote_type": "full"}]
 
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    monkeypatch.setattr(sd, "extract_quotes", fake)
     r = client.post(f"/api/sources/{sid}/process")
     assert r.status_code == 429
     body = r.get_json()
@@ -294,7 +294,7 @@ def test_daily_quota_is_reported_as_not_retryable(client, monkeypatch):
     def fake(chunk, lang="grc", hints=None):
         raise gemini_limits.QuotaExhausted("daily")
 
-    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    monkeypatch.setattr(sd, "extract_quotes", fake)
     r = client.post(f"/api/sources/{sid}/process")
     assert r.status_code == 429 and r.get_json()["retryable"] is False and "daily" in r.get_json()["error"]
 
@@ -308,3 +308,11 @@ def test_max_rpm_setting(client):
     client.post("/api/settings", json={"max_rpm": "abc"})
     assert sd.get_max_rpm() == 5
     assert b'id="max-rpm"' in client.get("/settings").data
+
+
+def test_about_and_settings_mention_local_models(client):
+    about = client.get("/about").data.decode()
+    assert "llama-cpp-python" in about and "Ollama" in about
+    st = client.get("/settings").data.decode()
+    for needle in ('id="rc-openai"', 'id="rc-llamacpp"', 'id="gguf-path"', 'id="chunk-chars"', "testBackend()"):
+        assert needle in st, needle

@@ -158,6 +158,30 @@ def chunk_text(text: str, max_chars: int = 12000) -> list[tuple[int, int]]:
     return ranges
 
 
+def split_in_two(text: str, overlap: int = 120) -> tuple[str, str]:
+    """Split *text* near its middle at a paragraph, sentence or word boundary.
+    The second part starts *overlap* characters early (at a word boundary), so
+    that a quotation at the seam is complete in at least one part."""
+    n = len(text)
+    mid, lo, hi = n // 2, n // 4, 3 * n // 4
+    cut = None
+    nl = [i for i in range(lo, hi) if text[i] == "\n"]
+    if nl:
+        cut = min(nl, key=lambda i: abs(i - mid)) + 1
+    else:
+        ends = [m.end() for m in _SENT_END.finditer(text, lo, hi)]
+        if ends:
+            cut = min(ends, key=lambda i: abs(i - mid))
+        else:
+            sp = [i for i in range(lo, hi) if text[i] == " "]
+            cut = (min(sp, key=lambda i: abs(i - mid)) + 1) if sp else mid
+    start2 = max(0, cut - overlap)
+    if start2 > 0:
+        sp = text.find(" ", start2, cut)
+        start2 = sp + 1 if sp != -1 else cut
+    return text[:cut], text[start2:]
+
+
 # ── verse references ─────────────────────────────────────────────────────────
 
 _REF_RE = re.compile(r"^([a-z0-9]+)_([0-9a-z]+):([0-9a-z]+)$")

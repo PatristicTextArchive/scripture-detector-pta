@@ -360,3 +360,14 @@ def test_consecutive_verses_from_several_annotations_on_an_existing_quote_are_me
     assert _refs(out) == ["NA:Phil:2:8-10"] and out.decode().count("<ref decls") == 1
     again = tei_doc.read_tei(out, {("na", "phil"): "phil"})
     assert again.annotations[0]["refs"] == ["phil_2:8", "phil_2:9", "phil_2:10"]
+
+
+def test_split_in_two_prefers_paragraphs_keeps_overlap_and_loses_nothing():
+    a, b = "α " * 300, "β " * 300
+    p1, p2 = greek.split_in_two(a.rstrip() + "\n" + b.rstrip(), overlap=0)
+    assert p1.endswith("\n") and p2.startswith("β")
+    text = " ".join(f"wort{i}" for i in range(400))
+    x, y = greek.split_in_two(text, overlap=100)
+    assert x + y[len(y) - (len(text) - len(x)):] == text                 # no gap
+    assert 0 < len(x) + len(y) - len(text) <= 120                        # a little overlap
+    assert y.startswith("wort")                                          # starts at a word boundary
