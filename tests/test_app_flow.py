@@ -254,3 +254,57 @@ def test_about_page_links_to_pta_and_original(client):
                 "https://pta.bbaw.de/en/project/encoding-guidelines", "https://github.com/yale-ch/scripture-detector"):
         assert f'href="{url}' in html, url
     assert "Greek" in html and "Vg:Gn:1:1" in html and "CC BY-SA 4.0" in html
+
+
+# ── rate limits ──────────────────────────────────────────────────────────────
+
+def test_interrupted_run_resumes_without_repeating_requests(client, monkeypatch):
+    import gemini_limits
+    monkeypatch.setattr(sd, "CHUNK_CHARS", 100)
+    text = "\n".join(f"Satz {i} " * 6 + PS_62_9 for i in range(3))
+    sid = client.post("/api/sources", json={"name": "Lang", "text": text}).get_json()["id"]
+    calls, fail = [], {"on": True}
+
+    def fake(chunk, lang="grc", hints=None):
+        calls.append(chunk)
+        if len(calls) == 2 and fail["on"]:
+            raise gemini_limits.RateLimited("429", retry_after=30, attempts=6, rpm=5)
+        return [{"text": PS_62_9, "resolved_references": ["ps_62:9"], "quote_type": "full"}]
+
+    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    r = client.post(f"/api/sources/{sid}/process")
+    assert r.status_code == 429
+    body = r.get_json()
+    assert body["retryable"] is True and "1 of 3 parts" in body["error"] and "Max requests per minute" in body["error"]
+    assert len(calls) == 2
+    assert client.get(f"/api/sources/{sid}").get_json()["annotations"] == []     # nothing half-written
+
+    fail["on"] = False
+    r = client.post(f"/api/sources/{sid}/process")
+    assert r.status_code == 200 and r.get_json()["count"] == 3
+    assert len(calls) == 2 + 2                      # part 1 was not asked again
+    client.post(f"/api/sources/{sid}/process")      # a deliberate re-run asks the model again
+    assert len(calls) == 2 + 2 + 3
+
+
+def test_daily_quota_is_reported_as_not_retryable(client, monkeypatch):
+    import gemini_limits
+    sid = client.post("/api/sources", json={"name": "Q", "text": PS_62_9}).get_json()["id"]
+
+    def fake(chunk, lang="grc", hints=None):
+        raise gemini_limits.QuotaExhausted("daily")
+
+    monkeypatch.setattr(sd, "extract_quotes_with_gemini", fake)
+    r = client.post(f"/api/sources/{sid}/process")
+    assert r.status_code == 429 and r.get_json()["retryable"] is False and "daily" in r.get_json()["error"]
+
+
+def test_max_rpm_setting(client):
+    assert sd.get_max_rpm() == 5
+    client.post("/api/settings", json={"max_rpm": "12"})
+    assert sd.get_max_rpm() == 12
+    client.post("/api/settings", json={"max_rpm": "0"})
+    assert sd.get_max_rpm() == 0
+    client.post("/api/settings", json={"max_rpm": "abc"})
+    assert sd.get_max_rpm() == 5
+    assert b'id="max-rpm"' in client.get("/settings").data

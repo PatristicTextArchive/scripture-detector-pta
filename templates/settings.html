@@ -109,6 +109,15 @@
         {% endfor %}
       </select>
     </div>
+    <div class="field">
+      <label for="max-rpm">Max requests per minute</label>
+      <input type="number" id="max-rpm" min="0" step="1" value="5" style="max-width:120px">
+      <p style="font-size:.8rem;color:var(--text-3,#777);margin-top:6px">
+        Gemini limits how many requests a model accepts per minute (free tiers often only 5–15). Long texts are analysed
+        in parts of about 12,000 characters, one request each. The app waits between requests and retries
+        automatically when the limit is hit. <strong>0 = no limit.</strong>
+      </p>
+    </div>
   </div>
 
   <div class="actions">
@@ -139,6 +148,7 @@ function loadSettings() {
       if (s.vertex_project_id) document.getElementById('project-id').value = s.vertex_project_id;
       if (s.vertex_location) document.getElementById('location').value = s.vertex_location;
       if (s.model) document.getElementById('model-select').value = s.model;
+      if (s.max_rpm !== undefined) document.getElementById('max-rpm').value = s.max_rpm;
     });
 }
 
@@ -148,6 +158,7 @@ function saveSettings() {
   const payload = {
     api_provider: currentProvider,
     model: document.getElementById('model-select').value,
+    max_rpm: document.getElementById('max-rpm').value.trim() === '' ? '5' : document.getElementById('max-rpm').value.trim(),
   };
   if (currentProvider === 'gemini') {
     const key = document.getElementById('api-key').value.trim();

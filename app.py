@@ -9,6 +9,7 @@ if "--cache-db" in _argv:
     os.environ["SCRIPTURE_DETECTOR_CACHE_DB"] = "1"
 sys.argv = [sys.argv[0]] + [a for a in _argv if a != "--cache-db"]
 
+import hashlib
 import io
 import json
 import re
@@ -31,7 +32,10 @@ from database import (
     get_book_distribution, get_quote_type_distribution, get_dashboard_data,
     search_sources, get_quote_source_id,
 )
+from collections import OrderedDict
+
 import corpora
+import gemini_limits
 import greek
 import tei_doc
 
@@ -112,6 +116,21 @@ def get_genai_client():
         if not api_key:
             raise ValueError("Gemini API Key not configured. Go to Settings.")
         return genai.Client(api_key=api_key)
+
+
+def get_max_rpm() -> int:
+    """Max Gemini requests per minute (Settings; 0 = unlimited).  Default 5, or SD_MAX_RPM."""
+    raw = get_setting("max_rpm", os.environ.get("SD_MAX_RPM", "5"))
+    try:
+        return max(0, int(float(raw)))
+    except (TypeError, ValueError):
+        return 5
+
+
+def _limit_key() -> str:
+    s = get_all_settings()
+    ident = s.get("vertex_project_id", "") if s.get("api_provider") == "vertex" else s.get("gemini_api_key", "")
+    return hashlib.sha1(f"{s.get('api_provider', 'gemini')}|{ident}|{get_model()}".encode()).hexdigest()
 
 
 def get_model() -> str:
@@ -210,13 +229,17 @@ def extract_quotes_with_gemini(text: str, lang: str = corpora.DEFAULT_LANG,
         },
     }
 
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": response_schema,
-        },
+    response = gemini_limits.call_with_retry(
+        lambda: client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": response_schema,
+            },
+        ),
+        key=_limit_key(),
+        rpm=get_max_rpm(),
     )
 
     quotes = json.loads(response.text)
@@ -249,19 +272,49 @@ def find_spans(text: str, quotes: list[dict], corpus: "corpora.Corpus", offset: 
     return results
 
 
+# Raw model answers of finished chunks, so that a run which was interrupted by a
+# rate limit continues where it stopped instead of repeating requests.  The entries
+# of a run are dropped when it completes, so a deliberate re-run asks the model again.
+_partial: "OrderedDict[str, list[dict]]" = OrderedDict()
+_PARTIAL_MAX = 2000
+
+
+def _chunk_key(model: str, lang: str, chunk: str, hints: list[str]) -> str:
+    return hashlib.sha1("\x00".join([model, lang, chunk, "\x01".join(hints)]).encode()).hexdigest()
+
+
 def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | None = None) -> list[dict]:
     """Run detection chunk-wise over *text* (which starts at *offset* in the
     source).  *hints*: passages already marked as <quote> in the source, with
-    absolute positions; they are passed to the model chunk by chunk."""
+    absolute positions; they are passed to the model chunk by chunk.
+
+    Requests are throttled and retried (see gemini_limits).  If the limit does
+    not clear, the finished chunks are kept for the next run and the raised
+    ``GeminiLimitError`` reports ``done``/``total``."""
     corpus = corpora.get_corpus(lang)
+    model = get_model()
+    chunks = [(a, b) for a, b in greek.chunk_text(text, CHUNK_CHARS) if text[a:b].strip()]
     found: list[dict] = []
-    for start, end in greek.chunk_text(text, CHUNK_CHARS):
+    keys: list[str] = []
+    for i, (start, end) in enumerate(chunks):
         chunk = text[start:end]
-        if not chunk.strip():
-            continue
         lo, hi = offset + start, offset + end
         chunk_hints = [h["text"] for h in (hints or []) if h["start"] >= lo and h["end"] <= hi]
-        found.extend(find_spans(chunk, extract_quotes_with_gemini(chunk, lang, chunk_hints), corpus, lo))
+        key = _chunk_key(model, lang, chunk, chunk_hints)
+        keys.append(key)
+        quotes = _partial.get(key)
+        if quotes is None:
+            try:
+                quotes = extract_quotes_with_gemini(chunk, lang, chunk_hints)
+            except gemini_limits.GeminiLimitError as exc:
+                exc.done, exc.total = i, len(chunks)
+                raise
+            _partial[key] = quotes
+            while len(_partial) > _PARTIAL_MAX:
+                _partial.popitem(last=False)
+        found.extend(find_spans(chunk, quotes, corpus, lo))
+    for k in keys:
+        _partial.pop(k, None)
     return found
 
 
@@ -635,6 +688,8 @@ def api_process_source(source_id: int):
         items = detect_quotes(source["text"], source_lang(source), hints=hints_for(source))
         delete_quotes_for_source(source_id)
         return jsonify({"status": "ok", "count": _store_detected(source_id, items)})
+    except gemini_limits.GeminiLimitError as e:
+        return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -658,6 +713,8 @@ def api_process_selection(source_id: int):
         items = detect_quotes(selection_text, source_lang(source), offset=start, hints=hints_for(source))
         delete_quotes_in_range(source_id, start, end)
         return jsonify({"status": "ok", "count": _store_detected(source_id, items)})
+    except gemini_limits.GeminiLimitError as e:
+        return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
