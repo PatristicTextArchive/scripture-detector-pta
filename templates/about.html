@@ -422,7 +422,7 @@
           <div class="step-num">2</div>
           <div class="step-body">
             <h3>AI Detection (Gemini or a local model)</h3>
-            <p>Click "Process with AI" to send the text to the model selected in Settings — Google Gemini or a local model — with a carefully engineered prompt. The prompt names the Bible corpus of the text's language and lists typical introductory formulas (such as <em>γέγραπται, φησίν, λέγει</em>; <em>scriptum est, ait, inquit</em>). Passages already marked as <code>&lt;quote&gt;</code> in a TEI file are passed on as hints. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Long texts are analyzed in chunks.</p>
+            <p>Click "Process with AI" to send the text to the model selected in Settings — Google Gemini or a local model — with a carefully engineered prompt. The text is first compared with the Bible texts to find candidate verses. The prompt names the Bible corpus of the text's language and lists typical introductory formulas (such as <em>γέγραπται, φησίν, λέγει</em>; <em>scriptum est, ait, inquit</em>). Passages already marked as <code>&lt;quote&gt;</code> in a TEI file are passed on as hints. The model returns a structured JSON list of all detected scriptural passages, their verse references, and classification types. Long texts are analyzed in chunks.</p>
           </div>
         </div>
         <div class="step">
@@ -457,7 +457,7 @@
         </span>
         Quote Classification Types
       </h2>
-      <p>The AI classifies each detected passage into one of four categories:</p>
+      <p>The model classifies each detected passage into one of four categories. Independently of that it flags whether the passage is explicitly introduced as a quotation (<em>marked</em>, e.g. after <em>γέγραπται</em> or <em>φησίν</em>), which becomes <code>@type="marked"</code> or <code>"unmarked"</code> in the TEI export. In the viewer every passage also shows its <em>match</em> percentage.</p>
       <div class="type-grid">
         <div class="type-item full">
           <strong>Full</strong>
@@ -533,6 +533,53 @@
       </ul>
     </div>
 
+    <!-- RAG -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        Finding Quotations with the Bible Texts (RAG)
+      </h2>
+      <p>
+        The model does not have to guess references from memory. Before each request the text is compared with <strong>all verses</strong> of the corpus: accents, breathings, case, sigma and Latin <em>u/v</em>, <em>i/j</em> are ignored, and words are reduced to stems, so inflected forms match. The most similar verses, each with the passage of the text it matches, are listed in the prompt as <em>candidate verses</em>; the model checks them. This helps small local models most.
+      </p>
+      <ul>
+        <li><strong>Repair:</strong> if the model gives a verse that does not fit the passage, but the passage clearly matches another verse, the reference is corrected.</li>
+        <li><strong>Addition:</strong> passages that clearly reuse a verse (about six or more matching words, not a common formula) are added even if the model overlooked them; consecutive verses become one annotation.</li>
+        <li><strong>Text search only:</strong> choose this provider in <a href="/settings">Settings</a> to work without any model. It finds full and partial quotations; paraphrases and allusions need a model.</li>
+      </ul>
+      <p>
+        <strong>How well does it work?</strong> On 2,601 biblical quotations marked by hand in 18 PTA editions, the verse given by the editors was among the 20 candidates of a text part for 83 % of them (71 % for quotations of 3–5 words, 88 % for 6–10, 94 % for 11 or more words); very short quotations cannot be told apart by wording alone. The comparison alone found 28 % of the annotated quotations and further passages, of which 24 of 26 inspected were genuine reuse that the editors had not marked. These figures describe the search, not any particular model. All options can be switched off in Settings.
+      </p>
+    </div>
+
+    <!-- AI models -->
+    <div class="about-card">
+      <h2>
+        <span class="icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+        </span>
+        AI Models: Gemini or Local
+      </h2>
+      <p>The model is chosen in <a href="/settings">Settings</a>. Gemini stays available; in addition the analysis can run on your own machine:</p>
+      <ul>
+        <li><strong>Gemini API / Vertex AI</strong> — cloud models. <em>Max requests per minute</em> (default 5) spaces the requests to stay within your quota. If Gemini still answers with a rate-limit or overload error, the app waits for the suggested time and retries; a used-up daily quota is reported as such. If a run is interrupted, the finished parts are kept and the next run continues with the rest; nothing is written to the database before a run is complete.</li>
+        <li><strong>Local server</strong> — any OpenAI-compatible endpoint: llama.cpp <code>llama-server</code>, vLLM, LM Studio, SGLang, LocalAI, …</li>
+        <li><strong>Local model file</strong> — a GGUF file (Qwen, Gemma, Llama, Mistral, …) loaded directly with <code>llama-cpp-python</code>; no server and no Ollama needed.</li>
+        <li><em>Save &amp; test connection</em> checks the chosen backend with a tiny request.</li>
+      </ul>
+      <p>
+        Long texts are sent in parts (about 12,000 characters for Gemini, about 3,500 for local models; adjustable under <em>Text Parts</em>). Local models need small parts because of their context window; if an answer is cut off, the part is split in two and analysed again. The answers are read tolerantly, so markdown fences, <code>&lt;think&gt;</code> blocks and truncated JSON do not break the analysis.
+      </p>
+      <div class="api-note">
+        <div class="api-note-icon">🔒</div>
+        <p>
+          <strong>Quality and privacy.</strong> Smaller local models find fewer passages and make more mistakes. Invented verses are removed by the check against the verse database and the <em>match</em> score marks doubtful ones — still, please test a new model on a text whose quotations you know. With a local model your texts never leave your machine.
+        </p>
+      </div>
+    </div>
+
     <!-- Technical requirements -->
     <div class="about-card">
       <h2>
@@ -542,10 +589,10 @@
         Technical Requirements
       </h2>
       <ul>
-        <li>Python 3.10+ with Flask — the entire backend runs as a lightweight local web application.</li>
+        <li>Python 3.11+ with Flask — the entire backend runs as a lightweight local web application.</li>
         <li>SQLite — all sources, annotations, and settings are stored in a local database with no external server required.</li>
         <li>Bible verse databases are included and used for verse lookup, reference validation, and match scores: the Greek Bible (Septuagint and New Testament, 37,034 verses, from the Patristic Text Archive) and the Latin Vulgate. lxml is used to read and write TEI.</li>
-        <li>A model: either Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — or a <strong>local model</strong> (see below), so that no external service is needed at all.</li>
+        <li>A model: either Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — or a <strong>local model</strong> (see <em>AI Models</em> above), so that no external service is needed at all.</li>
       </ul>
       <div class="api-note">
         <div class="api-note-icon">🔑</div>
@@ -602,10 +649,11 @@
         Key Features
       </h2>
       <ul>
-        <li>Full-text AI analysis using Google Gemini with structured JSON output, chunked for long texts.</li>
+        <li>Full-text AI analysis using Google Gemini or a local model with structured JSON output, chunked for long texts.</li>
         <li><strong>Greek and Latin</strong> corpora (Septuagint, New Testament, Vulgate); the language of a TEI file is read from <code>xml:lang</code>.</li>
         <li><strong>TEI import and export</strong> following the PTA encoding guidelines (<code>&lt;quote&gt;</code>, <code>&lt;seg type="allusion"&gt;</code>, <code>&lt;ref decls="#biblical" cRef="…"/&gt;</code>).</li>
         <li>Existing <code>&lt;quote&gt;</code> elements are checked for biblical references and enriched instead of duplicated.</li>
+        <li><strong>Retrieval from the Bible texts (RAG):</strong> candidate verses in the prompt, repair of wrong references, addition of clear matches, or a pure text search without any model.</li>
         <li>Accent-, breathing-, and case-insensitive matching; every reference is validated, and each quote gets a match score.</li>
         <li>Export notes list the affected passage with context and location in the file.</li>
         <li>Color-coded in-text annotations with click-to-explore interactivity.</li>
@@ -617,7 +665,8 @@
         <li>Support for the Gemini API (free tier), Google Vertex AI, and <strong>local models</strong>: any OpenAI-compatible server (llama.cpp <code>llama-server</code>, vLLM, LM Studio, …) or a GGUF file loaded directly with <code>llama-cpp-python</code> — no Ollama required.</li>
         <li>Request rate limiting and automatic retries for Gemini; interrupted runs continue where they stopped.</li>
         <li>Model switching — choose between available Gemini model versions, or configure a local model and test the connection in Settings.</li>
-        <li>Runs entirely locally — your texts never leave your machine except for the AI API call.</li>
+        <li>Runs locally — your texts leave your machine only for a Gemini/Vertex request; with a local model nothing is sent anywhere.</li>
+        <li>Notifications that stay readable: stacked messages, and a complete list of all export warnings and import errors in a dialog (with <em>Copy all</em>).</li>
         <li>Open source: <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">original project</a> (Yale University) · Greek/Latin/TEI version based on it.</li>
       </ul>
     </div>
@@ -645,7 +694,7 @@
         </div>
         <div class="screenshot-item">
           <img src="/static/screenshots/settings.png" alt="Settings page" onerror="this.closest('.screenshot-item').style.display='none'">
-          <div class="screenshot-caption">Settings — configure your Gemini API key and model selection</div>
+          <div class="screenshot-caption">Settings — AI provider and model (screenshot of the original version; this version adds local models, request limits and text-part size)</div>
         </div>
       </div>
     </div>
@@ -656,7 +705,7 @@
   <div style="text-align:center;padding:40px 0 24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border-light);margin-top:40px">
     Original application developed by Dr. William J.B. Mattingly · Yale University · 2026 · <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener" style="color:var(--primary-mid)">github.com/yale-ch/scripture-detector</a><br>
     Greek Bible texts and encoding guidelines: <a href="https://pta.bbaw.de" target="_blank" rel="noopener" style="color:var(--primary-mid)">Patristic Text Archive</a> (BBAW) · <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener" style="color:var(--primary-mid)">GitHub</a> · CC BY-SA 4.0<br>
-    This fork developed by Dr. habil. Annette von Stockhausen for use towards the Patristic Text Archive.
+    Built for the <a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank" style="color:var(--primary-mid)">Ruse of Reuse</a> workshop, Austrian Academy of Sciences, Vienna · March 5–6, 2026
   </div>
 </div>
 

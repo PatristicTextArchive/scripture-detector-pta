@@ -39,6 +39,7 @@ import corpora
 import gemini_limits
 import greek
 import llm_backends
+import retrieval
 import tei_doc
 
 app = Flask(__name__)
@@ -84,6 +85,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 CHUNK_CHARS = int(os.environ.get("SD_CHUNK_CHARS", "12000"))              # Gemini / Vertex
 LOCAL_CHUNK_CHARS = int(os.environ.get("SD_LOCAL_CHUNK_CHARS", "3500"))   # local models: small context windows
 LOCAL_PROVIDERS = ("openai", "llamacpp")
+NO_MODEL = "rag"       # provider "text search only": no model, only the matches from the Bible texts
 
 MODELS = [
     {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash"},
@@ -147,7 +149,29 @@ def model_label() -> str:
         return f"openai:{s.get('local_base_url', '')}:{s.get('local_model', '')}"
     if prov == "llamacpp":
         return f"llamacpp:{Path(s.get('gguf_path', '')).name}"
+    if prov == NO_MODEL:
+        return "text search (no model)"
     return get_model()
+
+
+def rag_enabled() -> bool:
+    """Candidate verses from the Bible texts are added to the prompt (Settings, default on)."""
+    return get_setting("rag", "on") != "off"
+
+
+def rag_add_enabled() -> bool:
+    """Strong text matches the model missed are added, wrong references repaired (default on)."""
+    return get_provider() == NO_MODEL or get_setting("rag_add", "on") != "off"
+
+
+def get_rag_top_k() -> int:
+    try:
+        v = int(float(get_setting("rag_top_k", "")))
+        if v > 0:
+            return v
+    except (TypeError, ValueError):
+        pass
+    return 25 if is_local() else 50
 
 
 def get_chunk_chars() -> int:
@@ -158,7 +182,7 @@ def get_chunk_chars() -> int:
             return v
     except (TypeError, ValueError):
         pass
-    return LOCAL_CHUNK_CHARS if is_local() else CHUNK_CHARS
+    return LOCAL_CHUNK_CHARS if is_local() else CHUNK_CHARS      # also for the text-search-only mode
 
 
 def _limit_key() -> str:
@@ -168,14 +192,28 @@ def _limit_key() -> str:
 
 
 def get_model() -> str:
-    return get_setting("model", "gemini-3.8-flash")
+    return get_setting("model", "gemini-3-pro-preview")
+
+
+def format_candidates(cands: list, text: str, corpus: "corpora.Corpus", budget: int) -> str:
+    """Candidate verses for the prompt, best first, within *budget* characters."""
+    lines, used = [], 0
+    for c in cands:
+        verse = corpus.verses.get(c.key, "")
+        line = (f"  {c.key} | verse: {verse[:150]}{'…' if len(verse) > 150 else ''}"
+                f" | in the text: {text[c.start:c.end][:80]}")
+        if used + len(line) > budget and lines:
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return "\n".join(lines)
 
 
 def build_prompt(text: str, corpus: "corpora.Corpus", hints: list[str] | None = None,
-                 json_hint: bool = False) -> str:
+                 json_hint: bool = False, candidates: str = "", compact: bool = False) -> str:
     meta = corpus.meta
     def label(v):
-        extra = f" / {v['greek_name']}" if v.get("greek_name") else ""
+        extra = f" / {v['greek_name']}" if v.get("greek_name") and not compact else ""
         return f"{v['name']}{extra}"
     mapping_lines = "\n".join(f"  {label(v)} -> {k}" for k, v in sorted(corpus.mapping.items()))
     examples = meta.get("example_refs", "mt_5:9, ps_22:1, 1cor_15:33")
@@ -195,6 +233,12 @@ The introductory words are NOT part of the quotation: extract only the quoted wo
 The document already marks the following passages as quotations (quote elements). Check each of them: if it is a biblical quotation, paraphrase or allusion, report it with exactly this text (verbatim, same boundaries) and its references; ignore those that are not biblical.
 {items}
 """
+    cand_block = ""
+    if candidates:
+        cand_block = f"""
+Candidate verses: a text-similarity search of the Bible found these verses, which share wording with passages of the text below (best first). Use them: check for each candidate whether the text really quotes, paraphrases or alludes to it, and report it with exactly these verse references. The list may contain false positives (common wording) and may miss passages: report only genuine reuse, and you may add verses that are not listed if you are sure about them.
+{candidates}
+"""
     return f"""You are an expert in biblical texts and scripture detection.
 
 The Bible text you work with is {meta.get('corpus', 'the Bible')}. Given the following {meta.get('language', '')} text, identify ALL scriptural (Biblical) quotations, partial quotations, paraphrases, and clear allusions to specific Bible verses.
@@ -208,14 +252,13 @@ For each identified passage:
    - "paraphrase" — the biblical content is clearly restated in different words while preserving the meaning.
    - "allusion"   — a brief phrase, thematic echo, or indirect reference to a specific verse.
 4. Say whether the passage is explicitly marked as a quotation in the document (introduced by a formula such as "it is written", "the prophet says", "as the apostle says", or an attribution) -> marked = true; otherwise marked = false.
-{intro}{hint_block}
+{intro}{hint_block}{cand_block}
 Reference format: book_chapter:verse  (e.g. {examples})
 CRITICAL: Each reference must be a SINGLE verse with a plain verse number. Never use ranges like {ex_book}_15:1-2.
 Instead, list each verse separately: {ex_book}_15:1, {ex_book}_15:2.
 
-Valid book codes: {", ".join(corpus.codes)}
-
-Book name to code mapping:
+{"" if compact else "Valid book codes: " + ", ".join(corpus.codes) + chr(10)}
+Book name to code mapping (only these codes are valid):
 {mapping_lines}
 
 {meta.get('prompt_notes', '')}
@@ -280,27 +323,53 @@ def generate(prompt: str) -> "llm_backends.Result":
     """One model call with the provider selected in Settings."""
     provider = get_provider()
     if provider in LOCAL_PROVIDERS:
-        return llm_backends.make_backend(provider, get_all_settings()).generate(prompt)
+        backend = llm_backends.make_backend(provider, get_all_settings())
+        if isinstance(backend, llm_backends.OpenAICompat):
+            info = backend.context_info()                    # llama-server: context per request
+            if info:
+                backend.max_tokens = min(backend.max_tokens, max(512, info["n_ctx"] // 3))
+        return backend.generate(prompt)
     return _generate_gemini(prompt)
 
 
+def _split_and_extract(text: str, lang: str, hints: list[str] | None, depth: int, budget: int) -> list[dict]:
+    """Analyse *text* in two halves (with a small overlap) and merge the results."""
+    merged: list[dict] = []
+    seen: set = set()
+    for part in greek.split_in_two(text):
+        for q in extract_quotes(part, lang, [h for h in (hints or []) if h in part], depth + 1, budget):
+            key = (q["text"].strip(), tuple(q["resolved_references"]))
+            if key not in seen:                   # the parts overlap a little
+                seen.add(key)
+                merged.append(q)
+    return merged
+
+
 def extract_quotes(text: str, lang: str = corpora.DEFAULT_LANG, hints: list[str] | None = None,
-                   _depth: int = 0) -> list[dict]:
+                   _depth: int = 0, _budget: int | None = None) -> list[dict]:
     """Ask the model for the biblical passages in *text*.  If a local model hits
-    its output limit, the text is split in parts and each part is analysed."""
-    prompt = build_prompt(text, corpora.get_corpus(lang), hints, json_hint=is_local())
-    result = generate(prompt)
+    its output limit, or the request does not fit into its context window, the
+    request is made smaller (fewer candidate verses, then half the text)."""
+    if get_provider() == NO_MODEL:
+        return []                                   # only the text matches (see detect_quotes)
+    corpus = corpora.get_corpus(lang)
+    budget = _budget if _budget is not None else (3200 if is_local() else 12000)
+    cand_text = ""
+    if rag_enabled():
+        cands = retrieval.candidates(text, corpus, top=get_rag_top_k())
+        cand_text = format_candidates(cands, text, corpus, budget)
+    prompt = build_prompt(text, corpus, hints, json_hint=is_local(), candidates=cand_text, compact=is_local())
+    try:
+        result = generate(prompt)
+    except llm_backends.ContextOverflow as exc:
+        if cand_text and budget > 400:
+            return extract_quotes(text, lang, hints, _depth, budget // 2)
+        if len(text) > 400 and _depth < 4:
+            return _split_and_extract(text, lang, hints, _depth, budget)
+        raise llm_backends.BackendError(exc.user_message()) from exc
     quotes = llm_backends.parse_quotes(result.text)
     if result.truncated and len(text) > 600 and _depth < 3:
-        merged: list[dict] = []
-        seen: set = set()
-        for part in greek.split_in_two(text):
-            for q in extract_quotes(part, lang, [h for h in (hints or []) if h in part], _depth + 1):
-                key = (q["text"].strip(), tuple(q["resolved_references"]))
-                if key not in seen:               # the parts overlap a little
-                    seen.add(key)
-                    merged.append(q)
-        return merged
+        return _split_and_extract(text, lang, hints, _depth, budget)
     for q in quotes:
         q["resolved_references"] = greek.expand_ranges(q.get("resolved_references", []))
     return quotes
@@ -350,7 +419,8 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
     not clear, the finished chunks are kept for the next run and the raised
     ``GeminiLimitError`` reports ``done``/``total``."""
     corpus = corpora.get_corpus(lang)
-    model = model_label()
+    model = model_label() + (f"|rag{get_rag_top_k()}" if rag_enabled() else "|norag")
+    add_matches = rag_add_enabled()
     chunks = [(a, b) for a, b in greek.chunk_text(text, get_chunk_chars()) if text[a:b].strip()]
     found: list[dict] = []
     keys: list[str] = []
@@ -370,10 +440,54 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
             _partial[key] = quotes
             while len(_partial) > _PARTIAL_MAX:
                 _partial.popitem(last=False)
-        found.extend(find_spans(chunk, quotes, corpus, lo))
+        chunk_found = find_spans(chunk, quotes, corpus, lo)
+        if add_matches:
+            chunk_found = enrich_with_matches(chunk, chunk_found, corpus, lo)
+        found.extend(chunk_found)
     for k in keys:
         _partial.pop(k, None)
     return found
+
+
+def _marked_by_formula(text: str, start: int, corpus: "corpora.Corpus") -> bool:
+    """Is the passage introduced by a formula (γέγραπται, φησίν, scriptum est …) just before it?"""
+    last_words = [f.split()[-1] for f in corpus.meta.get("intro_formulas", "").split(",") if f.strip()]
+    stems = {t.stem for w in last_words for t in retrieval.tokenize(w, corpus.lang)}
+    before = retrieval.tokenize(text[max(0, start - 80):start], corpus.lang)[-6:]
+    return any(t.stem in stems for t in before)
+
+
+def enrich_with_matches(chunk: str, results: list[dict], corpus: "corpora.Corpus", offset: int) -> list[dict]:
+    """Combine the model's results with the text matches found in the Bible texts:
+    references the model got wrong are replaced by the verse the passage matches, and
+    strong matches the model missed are added."""
+    matches = retrieval.lexical_matches(chunk, corpus)
+    used: set[int] = set()
+    for r in results:
+        if r["span_start"] is None:
+            continue
+        rs, re_ = r["span_start"] - offset, r["span_end"] - offset
+        for i, m in enumerate(matches):
+            ov = min(re_, m.end) - max(rs, m.start)
+            if ov < 0.5 * min(re_ - rs, m.end - m.start):
+                continue
+            used.add(i)
+            weak = r["score"] is None or r["score"] < 0.5
+            if weak and not set(r["resolved_references"]) & set(m.refs):
+                r["resolved_references"] = list(m.refs)                    # repaired
+                r["score"] = corpus.score_for(r["text"], r["resolved_references"])
+    out = list(results)
+    for i, m in enumerate(matches):
+        if i in used:
+            continue
+        passage = chunk[m.start:m.end]
+        out.append({
+            "text": passage, "span_start": offset + m.start, "span_end": offset + m.end,
+            "resolved_references": list(m.refs), "quote_type": m.quote_type,
+            "marked": _marked_by_formula(chunk, m.start, corpus),
+            "score": corpus.score_for(passage, m.refs),
+        })
+    return out
 
 
 def hints_for(source: dict) -> list[dict]:
@@ -428,9 +542,9 @@ def viewer(source_id: int):
     if not source:
         return redirect(url_for("sources_page"))
     settings = get_all_settings()
-    current_model = settings.get("model", "gemini-3-pro-preview")
+    current_model = settings.get("model", "gemini-3.8-flash")
     return render_template("viewer.html", source=source, models=MODELS, current_model=current_model,
-                           source_lang=source_lang(source), local_model=is_local(), model_label=model_label())
+                           source_lang=source_lang(source), local_model=is_local() or get_provider() == NO_MODEL, model_label=model_label())
 
 
 @app.route("/settings")
@@ -866,6 +980,21 @@ def api_source_distribution(source_id: int):
 def api_test_backend():
     """Send a tiny request with the saved settings to check the connection."""
     started = time.monotonic()
+    if get_provider() == NO_MODEL:
+        for lang in corpora.LANGUAGES:
+            retrieval.get_index(corpora.get_corpus(lang))
+        return jsonify({"status": "ok", "provider": NO_MODEL, "model": model_label(),
+                        "seconds": round(time.monotonic() - started, 1), "reply": "indexes built"})
+    warning = ""
+    info = None
+    if get_provider() == "openai":
+        info = llm_backends.make_backend("openai", get_all_settings()).context_info()
+        if info and info["n_ctx"] < 8192:
+            warning = (f"The server offers only {info['n_ctx']} tokens of context per request"
+                       f"{' (' + str(info['slots']) + ' parallel slots)' if info.get('slots') else ''}. "
+                       "With candidate verses the analysis needs about 8,000 or more. llama-server divides the context given "
+                       "with -c among its parallel slots in many versions: start it with -np 1 and -c 16384, or lower "
+                       "'Characters per request' and 'Candidate verses'.")
     try:
         result = generate('Reply with exactly this JSON and nothing else: {"quotes": []}')
     except gemini_limits.GeminiLimitError as e:
@@ -873,7 +1002,9 @@ def api_test_backend():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     return jsonify({"status": "ok", "provider": get_provider(), "model": model_label(),
-                    "seconds": round(time.monotonic() - started, 1), "reply": (result.text or "")[:200]})
+                    "seconds": round(time.monotonic() - started, 1), "reply": (result.text or "")[:200],
+                    "context": info["n_ctx"] if info else None, "slots": info.get("slots") if info else None,
+                    "warning": warning})
 
 
 @app.route("/api/settings", methods=["GET"])
@@ -890,7 +1021,7 @@ def api_get_settings():
 @app.route("/api/settings", methods=["POST"])
 def api_save_settings():
     body = request.get_json()
-    clearable = {"local_model", "local_api_key", "chunk_chars", "gguf_path"}      # may be emptied again
+    clearable = {"local_model", "local_api_key", "chunk_chars", "gguf_path", "rag_top_k"}      # may be emptied again
     for key, value in body.items():
         if value is not None and (str(value).strip() != "" or key in clearable):
             set_setting(key, str(value).strip() if key in clearable else str(value))

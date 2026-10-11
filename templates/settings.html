@@ -88,6 +88,11 @@
         <div class="rc-title">Local model file</div>
         <div class="rc-desc">GGUF loaded directly (llama-cpp-python), no server</div>
       </label>
+      <label class="radio-card" id="rc-rag" onclick="selectProvider('rag')">
+        <input type="radio" name="provider" value="rag">
+        <div class="rc-title">Text search only</div>
+        <div class="rc-desc">No model: matches found in the Bible texts</div>
+      </label>
     </div>
 
     <div class="conditional" id="gemini-fields">
@@ -115,7 +120,8 @@
         <label for="local-base-url">Server URL</label>
         <input type="text" id="local-base-url" placeholder="http://127.0.0.1:8080/v1" value="http://127.0.0.1:8080/v1">
         <div class="hint">llama.cpp: <code>llama-server -m model.gguf --port 8080 -c 16384</code> → <code>http://127.0.0.1:8080/v1</code> ·
-          vLLM: <code>http://127.0.0.1:8000/v1</code> · LM Studio: <code>http://127.0.0.1:1234/v1</code></div>
+          vLLM: <code>http://127.0.0.1:8000/v1</code> · LM Studio: <code>http://127.0.0.1:1234/v1</code><br>
+          Many llama-server versions divide <code>-c</code> among their parallel slots (<code>-np</code>): use <code>-np 1</code> (e.g. <code>-c 16384 -np 1</code>), otherwise each request gets only a part of the context. <em>Save &amp; test connection</em> shows the context per request.</div>
       </div>
       <div class="field">
         <label for="local-model">Model name</label>
@@ -148,7 +154,9 @@
       </div>
       <div class="field">
         <label for="n-ctx">Context size (n_ctx)</label>
-        <input type="number" id="n-ctx" min="2048" step="1024" value="8192" style="max-width:140px">
+        <input type="number" id="n-ctx" min="2048" step="1024" value="16384" style="max-width:140px">
+        <div class="hint">Default 16384: the prompt with candidate verses (Bible Text Search) plus the answer needs room. A larger context uses more memory;
+          if the model does not fit, lower this value and also the characters per request under <em>Text Parts</em>.</div>
       </div>
       <div class="field">
         <label for="n-gpu-layers">Layers on the GPU (n_gpu_layers)</label>
@@ -187,6 +195,33 @@
     </div>
   </div>
 
+  <div class="card" id="card-rag">
+    <h2>Bible Text Search (RAG)</h2>
+    <p id="rag-only-note" style="display:none;font-size:.88rem;margin-bottom:12px">
+      <strong>Text search only:</strong> no model is used. Passages that reuse a verse closely (full or partial quotations, about six
+      words or more) are found by comparing the text with the Bible texts. Paraphrases and allusions need a model.
+    </p>
+    <div class="field">
+      <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+        <input type="checkbox" id="rag-on" checked> Give the model candidate verses from the Bible texts
+      </label>
+      <div class="hint">Before each request the text is compared with all verses (inflection and accents are ignored); the most similar
+        verses are listed in the prompt. The model checks them instead of guessing references from memory — this helps small local models most.</div>
+    </div>
+    <div class="field">
+      <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+        <input type="checkbox" id="rag-add" checked> Add strong text matches the model missed, and correct wrong references
+      </label>
+      <div class="hint">Passages that clearly reuse a verse (six or more matching words, not a common formula) are added even if the model
+        did not report them; a reference the model got wrong is replaced by the verse the passage actually matches.</div>
+    </div>
+    <div class="field">
+      <label for="rag-top-k">Candidate verses per text part</label>
+      <input type="number" id="rag-top-k" min="5" step="5" placeholder="default" style="max-width:140px">
+      <div class="hint">Default 50 for Gemini and 25 for local models (the prompt must fit into the context window). Leave empty for the default.</div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>Text Parts</h2>
     <div class="field">
@@ -209,7 +244,7 @@
 let currentProvider = 'gemini';
 
 
-const PROVIDERS = ['gemini', 'vertex', 'openai', 'llamacpp'];
+const PROVIDERS = ['gemini', 'vertex', 'openai', 'llamacpp', 'rag'];
 function selectProvider(p) {
   currentProvider = p;
   PROVIDERS.forEach(x => {
@@ -219,7 +254,8 @@ function selectProvider(p) {
   });
   const local = (p === 'openai' || p === 'llamacpp');
   document.getElementById('local-common-fields').classList.toggle('visible', local);
-  document.getElementById('card-gemini-model').style.display = local ? 'none' : '';
+  document.getElementById('card-gemini-model').style.display = (local || p === 'rag') ? 'none' : '';
+  document.getElementById('rag-only-note').style.display = p === 'rag' ? '' : 'none';
 }
 const val = id => document.getElementById(id).value.trim();
 
@@ -238,7 +274,9 @@ function loadSettings() {
       set('local-base-url', s.local_base_url); set('local-model', s.local_model); set('local-api-key', s.local_api_key);
       set('local-structured', s.local_structured); set('local-timeout', s.local_timeout);
       set('gguf-path', s.gguf_path); set('n-ctx', s.n_ctx); set('n-gpu-layers', s.n_gpu_layers);
-      set('local-max-tokens', s.local_max_tokens); set('chunk-chars', s.chunk_chars);
+      set('local-max-tokens', s.local_max_tokens); set('chunk-chars', s.chunk_chars); set('rag-top-k', s.rag_top_k);
+      document.getElementById('rag-on').checked = s.rag !== 'off';
+      document.getElementById('rag-add').checked = s.rag_add !== 'off';
     });
 }
 
@@ -250,7 +288,11 @@ function testBackend() {
     .then(() => fetch('/api/test-backend', {method: 'POST'}))
     .then(async r => ({ok: r.ok, data: await r.json().catch(() => ({}))}))
     .then(({ok, data}) => {
-      if (ok) showToast(`Connection OK: ${data.model} answered in ${data.seconds} s`, true);
+      if (ok && data.warning) {
+        showToast(`Connection OK, but the context window is small (${data.context} tokens). See the notes.`, 'warn');
+        showNotice('Connection test: check the server settings', [data.warning]);
+      } else if (ok) showToast(`Connection OK: ${data.model} answered in ${data.seconds} s` +
+                               (data.context ? ` (context per request: ${data.context} tokens)` : ''), true);
       else showNotice('Connection test failed', [data.error || 'Unknown error'], {kind: 'err'});
     })
     .catch(e => showToast('Error: ' + e.message, false))
@@ -266,6 +308,9 @@ function saveSettings() {
     max_rpm: document.getElementById('max-rpm').value.trim() === '' ? '5' : document.getElementById('max-rpm').value.trim(),
   };
   payload.chunk_chars = val('chunk-chars');
+  payload.rag = document.getElementById('rag-on').checked ? 'on' : 'off';
+  payload.rag_add = document.getElementById('rag-add').checked ? 'on' : 'off';
+  payload.rag_top_k = val('rag-top-k');
   if (currentProvider === 'openai') {
     Object.assign(payload, {
       local_base_url: val('local-base-url'), local_model: val('local-model'), local_api_key: val('local-api-key'),

@@ -55,12 +55,24 @@ def test_parse_salvages_truncated_output():
 
 class Fake:
     def __init__(self, behave):
-        self.requests, self.behave = [], behave
+        self.requests, self.behave, self.props = [], behave, None
         fake = self
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
                 pass
+
+            def do_GET(self):
+                fake.requests.append({"path": self.path, "body": None, "auth": None})
+                if self.path == "/props" and fake.props is not None:
+                    raw, status = json.dumps(fake.props).encode(), 200
+                else:
+                    raw, status = b"{}", 404
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
 
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -94,6 +106,7 @@ def server():
         made.append(f)
         return f
     lb._NO_SCHEMA.clear()
+    lb._CTX_CACHE.clear()
     yield make
     for f in made:
         f.close()
@@ -238,3 +251,90 @@ def test_truncated_local_answer_splits_the_text_and_keeps_all_quotes(server, mon
     assert r.get_json()["count"] == 2, r.get_json()
     assert len(sizes) == 3 and sizes[0] > 1200 and max(sizes[1:]) < 1200            # one call, then two halves
     c.post("/api/settings", json={"api_provider": "gemini"})
+
+
+def test_default_context_size_is_16384():
+    assert lb.LlamaCpp("x.gguf").n_ctx == 16384
+    assert lb.make_backend("llamacpp", {"gguf_path": "x.gguf"}).n_ctx == 16384
+    assert lb.make_backend("llamacpp", {"gguf_path": "x.gguf", "n_ctx": "4096"}).n_ctx == 4096      # explicit value wins
+    import app as sd
+    c = sd.app.test_client()
+    assert 'id="n-ctx" min="2048" step="1024" value="16384"' in c.get("/settings").data.decode()
+
+
+# ── context window ───────────────────────────────────────────────────────────
+
+LLAMA_OVERFLOW = {"error": {"code": 400, "type": "exceed_context_size_error",
+                            "message": "the request exceeds the available context size, try increasing it",
+                            "n_prompt_tokens": 5100, "n_ctx": 4096}}
+VLLM_OVERFLOW = {"object": "error", "code": 400, "message":
+                 "This model's maximum context length is 8192 tokens. However, you requested 12000 tokens "
+                 "(4000 in the messages, 8000 in the completion). Please reduce the length of the messages or completion."}
+
+
+def test_overflow_is_recognised_in_llamacpp_and_vllm_format(server):
+    f = server(lambda b: (400, LLAMA_OVERFLOW))
+    with pytest.raises(lb.ContextOverflow) as e:
+        lb.OpenAICompat(f.url).generate("x")
+    assert (e.value.n_prompt, e.value.n_ctx) == (5100, 4096)
+    assert "-np 1" in e.value.user_message() and "5100" in e.value.user_message()
+    assert lb._overflow_from(400, json.dumps(VLLM_OVERFLOW)).n_ctx == 8192
+    assert lb._overflow_from(400, "unsupported response_format json_schema") is None      # not an overflow
+    assert lb._overflow_from(200, "exceeds the context") is None
+
+
+def test_answer_limit_is_reduced_when_prompt_plus_answer_do_not_fit(server):
+    def behave(b):
+        if b["max_tokens"] > 5000:
+            return 400, {"message": "maximum context length is 8192 tokens. However, you requested 12000 tokens "
+                                    "(4000 in the messages, 8000 in the completion)", "n_prompt_tokens": 4000, "n_ctx": 8192}
+        return reply(json.dumps({"quotes": []}))
+    f = server(behave)
+    res = lb.OpenAICompat(f.url, max_tokens=8000, structured="off").generate("x")
+    assert lb.parse_quotes(res.text) == []
+    assert [r["body"]["max_tokens"] for r in f.requests] == [8000, 8192 - 4000 - 64]
+
+
+def test_context_info_from_props(server):
+    f = server(lambda b: reply("{}"))
+    f.props = {"default_generation_settings": {"n_ctx": 4096}, "total_slots": 4}
+    assert lb.OpenAICompat(f.url).context_info() == {"n_ctx": 4096, "slots": 4}
+    f2 = server(lambda b: reply("{}"))                 # no /props (vLLM, LM Studio): unknown, not an error
+    assert lb.OpenAICompat(f2.url).context_info() is None
+
+
+def test_app_shrinks_the_request_on_context_overflow_and_reports_small_contexts(server):
+    import app as sd
+    seen = []
+
+    def behave(body):
+        prompt = body["messages"][0]["content"]
+        seen.append(len(prompt))
+        if len(prompt) > 9000:                                   # a window that is too small for the full prompt
+            return 400, LLAMA_OVERFLOW
+        if "TEXT:\n" not in prompt:                              # the connection test
+            return reply('{"quotes": []}')
+        t = prompt.split("TEXT:\n", 1)[1]
+        found = [dict(Q)] if Q["text"] in t else []
+        return reply(json.dumps({"quotes": found}))
+    f = server(behave)
+    f.props = {"default_generation_settings": {"n_ctx": 4096}, "total_slots": 4}
+    sd.app.config["TESTING"] = True
+    c = sd.app.test_client()
+    c.post("/api/settings", json={"api_provider": "openai", "local_base_url": f.url, "chunk_chars": "5000", "rag": "on"})
+    text = "ἄλλος λόγος " * 150 + Q["text"] + " καὶ " + "τέλος λόγου " * 120
+    sid = c.post("/api/sources", json={"name": "Eng", "text": text}).get_json()["id"]
+    r = c.post(f"/api/sources/{sid}/process")
+    assert r.status_code == 200 and r.get_json()["count"] == 1, r.get_json()
+    assert max(seen) > 9000 and seen[-1] <= 9000 and len(seen) > 2          # tried, shrank, succeeded
+    posts = [r for r in f.requests if r["body"]]
+    assert posts[-1]["body"]["max_tokens"] == 4096 // 3                    # capped by the context the server reports
+
+    t = c.post("/api/test-backend").get_json()
+    assert t["context"] == 4096 and t["slots"] == 4 and "-np 1" in t["warning"]
+
+    f.behave = lambda body: (400, LLAMA_OVERFLOW)                         # nothing fits at all
+    sid2 = c.post("/api/sources", json={"name": "Tiny", "text": "κείμενον " * 30}).get_json()["id"]
+    r = c.post(f"/api/sources/{sid2}/process")
+    assert r.status_code == 500 and "-np 1" in r.get_json()["error"]
+    c.post("/api/settings", json={"api_provider": "gemini", "chunk_chars": ""})

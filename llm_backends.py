@@ -49,6 +49,25 @@ class BackendError(RuntimeError):
     """A local backend could not produce an answer (message is shown to the user)."""
 
 
+class ContextOverflow(BackendError):
+    """The request does not fit into the model's context window."""
+
+    def __init__(self, message: str, n_prompt: int | None = None, n_ctx: int | None = None):
+        super().__init__(message)
+        self.n_prompt, self.n_ctx = n_prompt, n_ctx
+
+    def user_message(self) -> str:
+        sizes = ""
+        if self.n_prompt and self.n_ctx:
+            sizes = f" (prompt: {self.n_prompt} tokens, context per request: {self.n_ctx} tokens)"
+        elif self.n_ctx:
+            sizes = f" (context per request: {self.n_ctx} tokens)"
+        return ("The context window of the model is too small for even a short request" + sizes + ". "
+                "llama-server divides the context given with -c among its parallel slots (-np) in many versions: "
+                "start it with -np 1 or a larger -c (e.g. -c 16384 -np 1). Otherwise lower 'Characters per request' "
+                "and 'Candidate verses' in Settings, or choose a model with a larger context.")
+
+
 @dataclass
 class Result:
     text: str
@@ -132,7 +151,27 @@ def parse_quotes(text: str) -> list[dict]:
 
 # ── OpenAI-compatible servers ────────────────────────────────────────────────
 
-_NO_SCHEMA: set[str] = set()          # base URLs whose server rejected response_format
+_OVERFLOW = re.compile(r"exceed|too long|too large|maximum context|context (?:size|length|window)", re.I)
+
+
+def _overflow_from(status: int, body: str) -> ContextOverflow | None:
+    """Recognise a 'prompt does not fit' error of llama.cpp, vLLM, LM Studio, ..."""
+    if status not in (400, 413, 422, 500) or not _OVERFLOW.search(body) or not re.search(r"context|n_ctx|prompt", body, re.I):
+        return None
+    def num(*pats):
+        for pat in pats:
+            m = re.search(pat, body, re.I)
+            if m:
+                return int(m.group(1))
+        return None
+    return ContextOverflow(
+        f"context window exceeded: {body[:200]}",
+        num(r"n_prompt_tokens\W+(\d+)", r"\((\d+) in the messages"),
+        num(r"n_ctx\W+(\d+)", r"maximum context length is (\d+)"))
+
+
+_NO_SCHEMA: set[str] = set()
+_CTX_CACHE: dict[str, tuple[float, dict | None]] = {}          # base URLs whose server rejected response_format
 _SCHEMA_WORDS = ("response_format", "json_schema", "schema", "grammar", "guided")
 
 
@@ -161,6 +200,9 @@ class OpenAICompat:
         except requests.Timeout as exc:
             raise BackendError(f"The local server at {self.base_url} did not answer within {self.timeout:.0f} s. "
                                f"Use a smaller chunk size or a faster model, or raise the timeout in Settings.") from exc
+        overflow = _overflow_from(r.status_code, r.text)
+        if overflow:
+            raise overflow
         if r.status_code in (400, 422) and with_schema and any(w in r.text.lower() for w in _SCHEMA_WORDS):
             raise _SchemaRejected()
         if r.status_code in (401, 403):
@@ -172,9 +214,37 @@ class OpenAICompat:
         except ValueError as exc:
             raise BackendError(f"The server at {self.base_url} did not return JSON: {r.text[:200]}") from exc
 
+    def context_info(self) -> dict | None:
+        """Context window per request as reported by llama-server (GET /props); None if unknown."""
+        import time
+        import requests
+        hit = _CTX_CACHE.get(self.base_url)
+        if hit and time.monotonic() - hit[0] < 300:
+            return hit[1]
+        info = None
+        try:
+            r = requests.get(re.sub(r"/v1/?$", "", self.base_url) + "/props", timeout=5)
+            d = r.json() if r.status_code == 200 else {}
+            n_ctx = (d.get("default_generation_settings") or {}).get("n_ctx") or d.get("n_ctx")
+            if isinstance(n_ctx, int) and n_ctx > 0:
+                info = {"n_ctx": n_ctx, "slots": d.get("total_slots")}
+        except (requests.RequestException, ValueError):
+            info = None
+        _CTX_CACHE[self.base_url] = (time.monotonic(), info)
+        return info
+
     def generate(self, prompt: str) -> Result:
+        try:
+            return self._generate(prompt, self.max_tokens)
+        except ContextOverflow as exc:
+            # The prompt fits, but prompt + answer limit does not (vLLM counts both): ask for a shorter answer.
+            if exc.n_prompt and exc.n_ctx and exc.n_ctx - exc.n_prompt >= 300:
+                return self._generate(prompt, exc.n_ctx - exc.n_prompt - 64)
+            raise
+
+    def _generate(self, prompt: str, max_tokens: int) -> Result:
         body = {"messages": [{"role": "user", "content": prompt}], "temperature": 0,
-                "max_tokens": self.max_tokens, "stream": False}
+                "max_tokens": max_tokens, "stream": False}
         if self.model:
             body["model"] = self.model
         use_schema = self.structured != "off" and self.base_url not in _NO_SCHEMA
@@ -203,7 +273,7 @@ _LLAMA_LOCK = threading.Lock()
 
 
 class LlamaCpp:
-    def __init__(self, model_path: str, n_ctx: int = 8192, n_gpu_layers: int = -1, max_tokens: int = 4096):
+    def __init__(self, model_path: str, n_ctx: int = 16384, n_gpu_layers: int = -1, max_tokens: int = 4096):
         self.model_path, self.n_ctx = model_path, n_ctx
         self.n_gpu_layers, self.max_tokens = n_gpu_layers, max_tokens
 
@@ -230,8 +300,7 @@ class LlamaCpp:
                     messages=[{"role": "user", "content": prompt}], temperature=0, max_tokens=self.max_tokens,
                     response_format={"type": "json_object", "schema": QUOTES_SCHEMA})
             except ValueError as exc:          # typically: prompt longer than n_ctx
-                raise BackendError(f"The model could not process the request ({exc}). "
-                                   f"Use a smaller chunk size or a larger context size (n_ctx).") from exc
+                raise ContextOverflow(f"{exc}", None, self.n_ctx) from exc
         choice = out["choices"][0]
         return Result((choice.get("message") or {}).get("content") or "", choice.get("finish_reason") == "length")
 
@@ -251,5 +320,5 @@ def make_backend(provider: str, s: dict):
                             s.get("local_api_key", ""), max_tokens, _int(s.get("local_timeout"), 600),
                             s.get("local_structured", "auto"))
     if provider == "llamacpp":
-        return LlamaCpp(s.get("gguf_path", ""), _int(s.get("n_ctx"), 8192), _int(s.get("n_gpu_layers"), -1), max_tokens)
+        return LlamaCpp(s.get("gguf_path", ""), _int(s.get("n_ctx"), 16384), _int(s.get("n_gpu_layers"), -1), max_tokens)
     raise BackendError(f"Unknown local provider '{provider}'")
