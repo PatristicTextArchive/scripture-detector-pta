@@ -61,9 +61,12 @@ def tokenize(text: str, lang: str) -> list[Token]:
 @dataclass
 class Candidate:
     key: str                  # verse key, e.g. ps_62:9
-    score: float              # window score (sum of idf of matching stems / stem pairs)
-    start: int                # character span of the best window in the searched text
+    score: float              # ranking score
+    start: int                # character span of the matching passage in the searched text
     end: int
+    words: int = 0            # aligned words
+    weight: float = 0.0       # sum of idf of the aligned words
+    parallels: int = 1        # verses containing this stretch of words (large = common phrase)
 
 
 @dataclass
@@ -101,6 +104,7 @@ class VerseIndex:
             for pair in set(zip(st, st[1:])):
                 bi[pair].append(i)
         self.bigrams = {p: v for p, v in bi.items() if len(v) <= max_df}
+        self.common_pairs = {p for p, v in bi.items() if len(v) > max_df}      # too common to be indexed
         self._verse_bigrams: dict[int, set] = {}
 
     def verse_bigrams(self, i: int) -> set:
@@ -117,7 +121,9 @@ class VerseIndex:
         the stretch is treated as maximally common."""
         lists = sorted((self.bigrams[p] for p in set(pairs) if p in self.bigrams), key=len)[:5]
         if not lists:
-            return self.n
+            # no rare pair: a stretch made of common pairs is maximally common; pairs that do not occur
+            # in the Bible at all say nothing (the text is not a verbatim stretch of it)
+            return self.n if any(p in self.common_pairs for p in pairs) else 0
         common = set(lists[0])
         for lst in lists[1:]:
             common &= set(lst)
@@ -160,6 +166,16 @@ def get_index(corpus) -> VerseIndex:
     return idx
 
 
+def phrase_info(text: str, corpus) -> tuple[int, int]:
+    """(number of words, number of verses containing this stretch of words).  A small
+    second number means the stretch is specific; a large one that it is a common
+    phrase; 0 that it does not occur verbatim in the Bible."""
+    index = get_index(corpus)
+    stems = [t.stem for t in tokenize(text, corpus.lang)]
+    pairs = list(zip(stems, stems[1:]))
+    return len(stems), (index.phrase_count(pairs) if pairs else 0)
+
+
 # ── candidates ───────────────────────────────────────────────────────────────
 
 def _windows(n_tokens: int, size: int, stride: int):
@@ -185,7 +201,8 @@ def scan(text: str, corpus, min_score: float = 12.0) -> tuple[list[Token], dict[
 
 
 def candidates(text: str, corpus, top: int = 20, min_score: float = 8.0, pool: int = 400,
-               per_region: int = 3) -> list[Candidate]:
+               per_region: int = 3, min_words: int = 0, min_weight: float = 0.0,
+               max_parallels: int = 10**9) -> list[Candidate]:
     """Verses that share wording with *text*, best first.
 
     The *pool* best verses of the window search are re-ranked by an alignment of
@@ -200,12 +217,17 @@ def candidates(text: str, corpus, top: int = 20, min_score: float = 8.0, pool: i
         v = index.stems[vi]
         lo, hi = max(0, a - len(v)), min(len(stems), b + len(v))
         al = _align(stems[lo:hi], v, index.idf)
-        if al:
-            first, last, words, weight, _ = al
-            score = weight * (0.4 + 0.6 * words / (last - first))
-            out.append(Candidate(index.keys[vi], score, toks[lo + first].start, toks[lo + last - 1].end))
-        else:
-            out.append(Candidate(index.keys[vi], sc * 0.25, toks[a].start, toks[b - 1].end))
+        if not al:
+            continue
+        first, last, words, weight, pairs = al
+        if words < min_words or weight < min_weight:
+            continue
+        parallels = index.phrase_count(pairs)
+        if parallels > max_parallels:
+            continue
+        score = weight * (0.4 + 0.6 * words / (last - first))
+        out.append(Candidate(index.keys[vi], score, toks[lo + first].start, toks[lo + last - 1].end,
+                             words, round(weight, 1), parallels))
     out.sort(key=lambda c: -c.score)
     return _spread(out, top, per_region)
 
@@ -263,9 +285,7 @@ def lexical_matches(text: str, corpus, min_words: int = 6, min_weight: float = 2
         first, last, words, weight, pairs = al
         region = last - first
         precision, coverage = words / region, words / len(v)
-        if words < min_words and not (coverage >= 0.8 and words >= 4 and weight >= min_weight):
-            continue
-        if weight < min_weight or precision < min_precision:
+        if words < min_words or weight < min_weight or precision < min_precision:
             continue
         parallels = index.phrase_count(pairs)
         if parallels > max_parallels:          # a formula, not a quotation of this verse

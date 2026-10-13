@@ -160,8 +160,30 @@ def rag_enabled() -> bool:
 
 
 def rag_add_enabled() -> bool:
-    """Strong text matches the model missed are added, wrong references repaired (default on)."""
-    return get_provider() == NO_MODEL or get_setting("rag_add", "on") != "off"
+    """Strong text matches the model missed are added, wrong references repaired, weak
+    results dropped (default on).  Off whenever the master switch for RAG is off."""
+    if get_provider() == NO_MODEL:
+        return True
+    return rag_enabled() and get_setting("rag_add", "on") != "off"
+
+
+# How strict the Bible text search is.  c_*: candidate verses for the prompt; m_*: passages added
+# without the model; the rest filters what the model reports as a verbatim (full/partial) quotation:
+# results of at most `drop_words` words are dropped; a stretch of fewer than 8 words that occurs in
+# more than `f_par` verses is a common phrase; results of at most `short_words` words must be
+# confirmed by the verse (match score >= `short_score`) and be rare (in at most 3 verses).
+STRICTNESS = {
+    "lenient": dict(c_words=0, c_weight=0.0, c_par=10**9, m_words=6, m_weight=22.0, m_prec=0.6, m_par=5,
+                    drop_words=2, f_par=10**9, short_words=0, short_score=0.0),
+    "normal": dict(c_words=4, c_weight=18.0, c_par=8, m_words=6, m_weight=22.0, m_prec=0.6, m_par=5,
+                   drop_words=2, f_par=8, short_words=4, short_score=0.75),
+    "strict": dict(c_words=5, c_weight=22.0, c_par=8, m_words=8, m_weight=28.0, m_prec=0.7, m_par=4,
+                   drop_words=3, f_par=5, short_words=5, short_score=0.85),
+}
+
+
+def get_strictness() -> dict:
+    return STRICTNESS.get(get_setting("rag_strictness", "normal"), STRICTNESS["normal"])
 
 
 def get_rag_top_k() -> int:
@@ -236,7 +258,7 @@ The document already marks the following passages as quotations (quote elements)
     cand_block = ""
     if candidates:
         cand_block = f"""
-Candidate verses: a text-similarity search of the Bible found these verses, which share wording with passages of the text below (best first). Use them: check for each candidate whether the text really quotes, paraphrases or alludes to it, and report it with exactly these verse references. The list may contain false positives (common wording) and may miss passages: report only genuine reuse, and you may add verses that are not listed if you are sure about them.
+Candidate verses: a text-similarity search of the Bible found these verses, which share wording with passages of the text below (best first). Use them: check for each candidate whether the text really quotes, paraphrases or alludes to it, and report it with exactly these verse references. The list contains many false positives: short phrases of a few words and common wording that merely resembles a verse are NOT quotations. Report only genuine, deliberate reuse (for instance a passage introduced by a formula, or several words that follow the verse closely); when in doubt, leave it out. The list may also miss passages: you may add verses that are not listed if you are sure about them.
 {candidates}
 """
     return f"""You are an expert in biblical texts and scripture detection.
@@ -356,7 +378,9 @@ def extract_quotes(text: str, lang: str = corpora.DEFAULT_LANG, hints: list[str]
     budget = _budget if _budget is not None else (3200 if is_local() else 12000)
     cand_text = ""
     if rag_enabled():
-        cands = retrieval.candidates(text, corpus, top=get_rag_top_k())
+        st = get_strictness()
+        cands = retrieval.candidates(text, corpus, top=get_rag_top_k(), min_words=st["c_words"],
+                                     min_weight=st["c_weight"], max_parallels=st["c_par"])
         cand_text = format_candidates(cands, text, corpus, budget)
     prompt = build_prompt(text, corpus, hints, json_hint=is_local(), candidates=cand_text, compact=is_local())
     try:
@@ -410,7 +434,8 @@ def _chunk_key(model: str, lang: str, chunk: str, hints: list[str]) -> str:
     return hashlib.sha1("\x00".join([model, lang, chunk, "\x01".join(hints)]).encode()).hexdigest()
 
 
-def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | None = None) -> list[dict]:
+def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | None = None,
+                  stats: dict | None = None) -> list[dict]:
     """Run detection chunk-wise over *text* (which starts at *offset* in the
     source).  *hints*: passages already marked as <quote> in the source, with
     absolute positions; they are passed to the model chunk by chunk.
@@ -419,7 +444,7 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
     not clear, the finished chunks are kept for the next run and the raised
     ``GeminiLimitError`` reports ``done``/``total``."""
     corpus = corpora.get_corpus(lang)
-    model = model_label() + (f"|rag{get_rag_top_k()}" if rag_enabled() else "|norag")
+    model = model_label() + (f"|rag{get_rag_top_k()}{get_setting('rag_strictness', 'normal')}" if rag_enabled() else "|norag")
     add_matches = rag_add_enabled()
     chunks = [(a, b) for a, b in greek.chunk_text(text, get_chunk_chars()) if text[a:b].strip()]
     found: list[dict] = []
@@ -442,7 +467,7 @@ def detect_quotes(text: str, lang: str, offset: int = 0, hints: list[dict] | Non
                 _partial.popitem(last=False)
         chunk_found = find_spans(chunk, quotes, corpus, lo)
         if add_matches:
-            chunk_found = enrich_with_matches(chunk, chunk_found, corpus, lo)
+            chunk_found = enrich_with_matches(chunk, chunk_found, corpus, lo, stats)
         found.extend(chunk_found)
     for k in keys:
         _partial.pop(k, None)
@@ -457,11 +482,36 @@ def _marked_by_formula(text: str, start: int, corpus: "corpora.Corpus") -> bool:
     return any(t.stem in stems for t in before)
 
 
-def enrich_with_matches(chunk: str, results: list[dict], corpus: "corpora.Corpus", offset: int) -> list[dict]:
+def filter_weak(results: list[dict], corpus: "corpora.Corpus") -> tuple[list[dict], int]:
+    """Drop what the model reports as a verbatim quotation but is a very short or a common phrase."""
+    st = get_strictness()
+    kept, dropped = [], 0
+    for r in results:
+        words, par = retrieval.phrase_info(r["text"], corpus)
+        weak = words <= st["drop_words"]
+        if not weak and r["quote_type"] in ("full", "partial"):
+            if par > st["f_par"] and words < 8:
+                weak = True
+            elif words <= st["short_words"] and ((r["score"] or 0) < st["short_score"] or par > 3):
+                weak = True
+        if weak:
+            dropped += 1
+        else:
+            kept.append(r)
+    return kept, dropped
+
+
+def enrich_with_matches(chunk: str, results: list[dict], corpus: "corpora.Corpus", offset: int,
+                        stats: dict | None = None) -> list[dict]:
     """Combine the model's results with the text matches found in the Bible texts:
-    references the model got wrong are replaced by the verse the passage matches, and
-    strong matches the model missed are added."""
-    matches = retrieval.lexical_matches(chunk, corpus)
+    weak results are dropped, references the model got wrong are replaced by the verse the
+    passage matches, and strong matches the model missed are added."""
+    stats = stats if stats is not None else {}
+    st = get_strictness()
+    results, dropped = filter_weak(results, corpus)
+    stats["dropped"] = stats.get("dropped", 0) + dropped
+    matches = retrieval.lexical_matches(chunk, corpus, min_words=st["m_words"], min_weight=st["m_weight"],
+                                        min_precision=st["m_prec"], max_parallels=st["m_par"])
     used: set[int] = set()
     for r in results:
         if r["span_start"] is None:
@@ -476,6 +526,7 @@ def enrich_with_matches(chunk: str, results: list[dict], corpus: "corpora.Corpus
             if weak and not set(r["resolved_references"]) & set(m.refs):
                 r["resolved_references"] = list(m.refs)                    # repaired
                 r["score"] = corpus.score_for(r["text"], r["resolved_references"])
+                stats["repaired"] = stats.get("repaired", 0) + 1
     out = list(results)
     for i, m in enumerate(matches):
         if i in used:
@@ -487,6 +538,7 @@ def enrich_with_matches(chunk: str, results: list[dict], corpus: "corpora.Corpus
             "marked": _marked_by_formula(chunk, m.start, corpus),
             "score": corpus.score_for(passage, m.refs),
         })
+        stats["added"] = stats.get("added", 0) + 1
     return out
 
 
@@ -857,9 +909,10 @@ def api_process_source(source_id: int):
     if not source:
         return jsonify({"error": "Source not found"}), 404
     try:
-        items = detect_quotes(source["text"], source_lang(source), hints=hints_for(source))
+        stats: dict = {}
+        items = detect_quotes(source["text"], source_lang(source), hints=hints_for(source), stats=stats)
         delete_quotes_for_source(source_id)
-        return jsonify({"status": "ok", "count": _store_detected(source_id, items)})
+        return jsonify({"status": "ok", "count": _store_detected(source_id, items), "rag": stats})
     except gemini_limits.GeminiLimitError as e:
         return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:
@@ -882,9 +935,10 @@ def api_process_selection(source_id: int):
         return jsonify({"error": "Empty selection"}), 400
 
     try:
-        items = detect_quotes(selection_text, source_lang(source), offset=start, hints=hints_for(source))
+        stats: dict = {}
+        items = detect_quotes(selection_text, source_lang(source), offset=start, hints=hints_for(source), stats=stats)
         delete_quotes_in_range(source_id, start, end)
-        return jsonify({"status": "ok", "count": _store_detected(source_id, items)})
+        return jsonify({"status": "ok", "count": _store_detected(source_id, items), "rag": stats})
     except gemini_limits.GeminiLimitError as e:
         return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:

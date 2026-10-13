@@ -201,24 +201,39 @@
       <strong>Text search only:</strong> no model is used. Passages that reuse a verse closely (full or partial quotations, about six
       words or more) are found by comparing the text with the Bible texts. Paraphrases and allusions need a model.
     </p>
-    <div class="field">
+    <div class="field" id="rag-master-field">
       <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-        <input type="checkbox" id="rag-on" checked> Give the model candidate verses from the Bible texts
+        <input type="checkbox" id="rag-on" checked onchange="updateRagUi()"> Use the Bible texts to support the model
       </label>
-      <div class="hint">Before each request the text is compared with all verses (inflection and accents are ignored); the most similar
-        verses are listed in the prompt. The model checks them instead of guessing references from memory — this helps small local models most.</div>
+      <div class="hint">When unchecked, the model works on its own (no candidate verses, nothing added, corrected or dropped afterwards).
+        Not relevant for <em>Text search only</em>.</div>
     </div>
-    <div class="field">
-      <label style="display:flex;gap:8px;align-items:center;font-weight:600">
-        <input type="checkbox" id="rag-add" checked> Add strong text matches the model missed, and correct wrong references
-      </label>
-      <div class="hint">Passages that clearly reuse a verse (six or more matching words, not a common formula) are added even if the model
-        did not report them; a reference the model got wrong is replaced by the verse the passage actually matches.</div>
-    </div>
-    <div class="field">
-      <label for="rag-top-k">Candidate verses per text part</label>
-      <input type="number" id="rag-top-k" min="5" step="5" placeholder="default" style="max-width:140px">
-      <div class="hint">Default 50 for Gemini and 25 for local models (the prompt must fit into the context window). Leave empty for the default.</div>
+    <div id="rag-options">
+      <div class="field">
+        <label for="rag-strictness">Strictness</label>
+        <select id="rag-strictness" style="max-width:340px">
+          <option value="strict">strict: fewest false positives, misses short quotations</option>
+          <option value="normal" selected>normal (recommended)</option>
+          <option value="lenient">lenient: most candidates, more false positives</option>
+        </select>
+        <div class="hint">Controls how closely a passage must follow a verse to be offered to the model as a candidate, to be added
+          without the model, and to count as a verbatim quotation. Very short phrases (two to four words) and common phrases that occur
+          in many verses are filtered out; <em>strict</em> asks for more words and rarer phrases.</div>
+      </div>
+      <div class="field">
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600">
+          <input type="checkbox" id="rag-add" checked> Also add strong matches, correct wrong references, drop weak results
+        </label>
+        <div class="hint">After the model has answered: passages that clearly reuse a verse are added even if the model overlooked them;
+          a reference the model got wrong is replaced by the verse the passage actually matches; results that are only a very short or common phrase are dropped.
+          Uncheck to use the Bible texts only as candidates in the prompt.</div>
+      </div>
+      <div class="field">
+        <label for="rag-top-k">Candidate verses per text part</label>
+        <input type="number" id="rag-top-k" min="5" step="5" placeholder="default" style="max-width:140px">
+        <div class="hint">At most this many (default 50 for Gemini, 25 for local models; fewer if few verses match well enough).
+          The prompt must fit into the context window. Leave empty for the default.</div>
+      </div>
     </div>
   </div>
 
@@ -256,8 +271,15 @@ function selectProvider(p) {
   document.getElementById('local-common-fields').classList.toggle('visible', local);
   document.getElementById('card-gemini-model').style.display = (local || p === 'rag') ? 'none' : '';
   document.getElementById('rag-only-note').style.display = p === 'rag' ? '' : 'none';
+  updateRagUi();
 }
 const val = id => document.getElementById(id).value.trim();
+function updateRagUi() {
+  const on = document.getElementById('rag-on').checked || currentProvider === 'rag';
+  document.getElementById('rag-options').style.opacity = on ? '' : '.45';
+  document.querySelectorAll('#rag-options input, #rag-options select').forEach(e => e.disabled = !on);
+  document.getElementById('rag-master-field').style.display = currentProvider === 'rag' ? 'none' : '';
+}
 
 function loadSettings() {
   fetch('/api/settings')
@@ -277,6 +299,8 @@ function loadSettings() {
       set('local-max-tokens', s.local_max_tokens); set('chunk-chars', s.chunk_chars); set('rag-top-k', s.rag_top_k);
       document.getElementById('rag-on').checked = s.rag !== 'off';
       document.getElementById('rag-add').checked = s.rag_add !== 'off';
+      if (s.rag_strictness) document.getElementById('rag-strictness').value = s.rag_strictness;
+      updateRagUi();
     });
 }
 
@@ -311,6 +335,7 @@ function saveSettings() {
   payload.rag = document.getElementById('rag-on').checked ? 'on' : 'off';
   payload.rag_add = document.getElementById('rag-add').checked ? 'on' : 'off';
   payload.rag_top_k = val('rag-top-k');
+  payload.rag_strictness = val('rag-strictness');
   if (currentProvider === 'openai') {
     Object.assign(payload, {
       local_base_url: val('local-base-url'), local_model: val('local-model'), local_api_key: val('local-api-key'),
