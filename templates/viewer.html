@@ -84,6 +84,13 @@
     cursor: pointer; transition: all .15s; border-radius: 2px; padding: 0 1px; }
   .seg-multi { background: rgba(99,102,241,.12); border-bottom: 2px solid var(--primary);
     cursor: pointer; transition: all .15s; border-radius: 2px; padding: 0 1px; }
+  /* annotations that were already marked up in the TEI source: grey hatching, dashed underline */
+  .seg-src { background: repeating-linear-gradient(135deg, rgba(71,85,105,.16) 0 4px, rgba(71,85,105,.05) 4px 8px);
+    border-bottom: 2px dashed #475569; cursor: pointer; transition: all .15s; border-radius: 2px; padding: 0 1px; }
+  .ann-src { border-left: 4px dashed #475569 !important; background: repeating-linear-gradient(135deg, rgba(71,85,105,.07) 0 6px, transparent 6px 12px), var(--surface); }
+  .src-badge { display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .02em; padding: 1px 7px;
+    border-radius: 999px; background: #475569; color: #fff; }
+  .src-note { font-size: .74rem; color: #475569; margin-top: 8px; }
   [class^="seg-"]:hover { filter: brightness(.92); }
   .seg-active { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
 
@@ -328,6 +335,10 @@
       <div class="legend-item"><div class="legend-swatch" style="background:var(--partial-bg);border-bottom:2px solid var(--partial)"></div>Partial</div>
       <div class="legend-item"><div class="legend-swatch" style="background:var(--paraphrase-bg);border-bottom:2px solid var(--paraphrase)"></div>Paraphrase</div>
       <div class="legend-item"><div class="legend-swatch" style="background:var(--allusion-bg);border-bottom:2px solid var(--allusion)"></div>Allusion</div>
+      <label class="legend-item" style="cursor:pointer" title="Quotations that were already marked up with a biblical reference in the TEI file (shown read-only; the export leaves them untouched)">
+        <div class="legend-swatch" style="background:repeating-linear-gradient(135deg,rgba(71,85,105,.35) 0 4px,rgba(71,85,105,.1) 4px 8px);border-bottom:2px dashed #475569"></div>
+        Already in source <input type="checkbox" id="toggle-src" checked onchange="toggleSrc(this.checked)" style="margin-left:4px">
+      </label>
     </div>
   </div>
 </div>
@@ -415,6 +426,15 @@ let modalRefs = [];
 let bibleBooks = null;
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function ragSummary(data) {
+  const r = data.rag || {}, parts = [];
+  if (r.added) parts.push(`${r.added} added from the Bible text search`);
+  if (r.repaired) parts.push(`${r.repaired} reference${r.repaired !== 1 ? 's' : ''} corrected`);
+  if (r.dropped) parts.push(`${r.dropped} weak result${r.dropped !== 1 ? 's' : ''} dropped`);
+  if (r.in_source) parts.push(`${r.in_source} skipped: already annotated in the source`);
+  return parts.length ? ` (${parts.join(', ')})` : '';
+}
+
 function exportTei(ev) {
   ev.preventDefault();
   const url = ev.currentTarget.getAttribute('href') + '?json=1';
@@ -466,29 +486,39 @@ function loadSource() {
     .then(data => { DATA = data; renderText(); });
 }
 
+let showSrc = true;
+function toggleSrc(on) { showSrc = on; renderText(); }
+const isSrc = a => a && a.origin === 'source';
+
 function renderText() {
   if (!DATA) return;
   const {segments, annotations} = DATA;
+  const visible = id => showSrc || !isSrc(annotations[id]);
 
   let html = '';
   segments.forEach((seg, i) => {
-    if (seg.annotation_ids.length === 0) {
+    const ids = seg.annotation_ids.filter(visible);
+    if (ids.length === 0) {
       html += `<span data-start="${seg.start}" data-end="${seg.end}">${esc(seg.text)}</span>`;
     } else {
-      const types = new Set(seg.annotation_ids.map(id => annotations[id]?.quote_type));
+      const types = new Set(ids.map(id => annotations[id]?.quote_type));
       let cls = 'seg-multi';
-      if (types.size === 1) cls = `seg-${[...types][0]}`;
-      const ids = seg.annotation_ids.join(',');
-      html += `<span class="${cls}" data-ann="${ids}" data-start="${seg.start}" data-end="${seg.end}">${esc(seg.text)}</span>`;
+      if (ids.every(id => isSrc(annotations[id]))) cls = 'seg-src';
+      else if (types.size === 1 && !ids.some(id => isSrc(annotations[id]))) cls = `seg-${[...types][0]}`;
+      const refs = [...new Set(ids.filter(id => isSrc(annotations[id])).flatMap(id => annotations[id].refs || []))];
+      const tip = refs.length ? ` title="Already marked up in the source: ${esc(refs.join(', '))}"` : '';
+      html += `<span class="${cls}"${tip} data-ann="${ids.join(',')}" data-start="${seg.start}" data-end="${seg.end}">${esc(seg.text)}</span>`;
     }
   });
   textPanel.innerHTML = html;
 
-  let annHtml = '<h2>Annotations (' + annotations.length + ')</h2>';
+  const nSrc = annotations.filter(isSrc).length;
+  let annHtml = '<h2>Annotations (' + annotations.length + (nSrc ? `, ${nSrc} already in the source` : '') + ')</h2>';
   if (annotations.length === 0) {
     annHtml += '<p style="color:var(--muted);font-size:.84rem;padding:16px 0">No quotes detected yet. Click "Process with AI" to analyze this text.</p>';
   }
   annotations.forEach((a, i) => {
+    if (isSrc(a) && !showSrc) return;
     const qt = a.quote_type || 'allusion';
     const snippet = (a.quote_text || '').slice(0, 140);
     let versesHtml = '';
@@ -497,18 +527,20 @@ function renderText() {
       versesHtml += `<div class="ann-verse"><strong>${esc(v.ref)}</strong> <span class="vtext">${vt}</span></div>`;
     });
     annHtml += `
-      <div class="ann-card ann-${qt}" data-idx="${i}" data-id="${a.id}">
+      <div class="ann-card ann-${qt}${isSrc(a) ? ' ann-src' : ''}" data-idx="${i}" data-id="${a.id}">
         <div class="ann-refs">
+          ${isSrc(a) ? '<span class="src-badge" title="This passage was already marked up with a biblical reference in the TEI file">in source</span>' : ''}
           <span class="type-badge type-${qt}">${qt}</span>
           ${a.score != null ? `<span class="ref-badge" style="${a.score < 0.4 ? 'color:var(--red)' : ''}" title="Share of the quoted words that occur in the referenced verse(s). Low values suggest a wrong reference or a free paraphrase.">match ${Math.round(a.score*100)}%</span>` : ''}
           ${(a.refs||[]).map(r => `<span class="ref-badge">${esc(r)}</span>`).join('')}
         </div>
         <div class="ann-quote">"${esc(snippet)}${snippet.length < (a.quote_text||'').length ? '...' : ''}"</div>
         ${versesHtml}
+        ${isSrc(a) ? `<div class="src-note">Already marked up and annotated in the source file. It is kept as it is and left untouched by the export.</div>` : `
         <div class="ann-actions">
           <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editQuote(${i})">Edit</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteQuote(${a.id})">Delete</button>
-        </div>
+        </div>`}
       </div>`;
   });
   annPanel.innerHTML = annHtml;
@@ -595,7 +627,7 @@ function processSource() {
     .then(r => r.json())
     .then(data => {
       if (data.error) { showToast(data.error, false); return; }
-      showToast(`Found ${data.count} quotes`, true);
+      showToast(`Found ${data.count} quotes` + ragSummary(data), true);
       distChartsRendered = false;
       loadSource();
     })
@@ -625,7 +657,7 @@ function analyzeSelection() {
   .then(r => r.json())
   .then(data => {
     if (data.error) { showToast(data.error, false); return; }
-    showToast(`Found ${data.count} quotes in selection`, true);
+    showToast(`Found ${data.count} quotes in selection` + ragSummary(data), true);
     distChartsRendered = false;
     loadSource();
   })

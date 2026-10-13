@@ -51,6 +51,7 @@ _SCHEMA_SQL = """
             CHECK(quote_type IN ('full','partial','paraphrase','allusion')),
         score REAL,
         marked INTEGER,
+        origin TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
@@ -82,6 +83,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE quotes ADD COLUMN score REAL")
     if "marked" not in q:
         conn.execute("ALTER TABLE quotes ADD COLUMN marked INTEGER")
+    if "origin" not in q:
+        conn.execute("ALTER TABLE quotes ADD COLUMN origin TEXT")
 
 
 def _new_session_conn() -> sqlite3.Connection:
@@ -214,14 +217,16 @@ def add_quote(
     references: list[str],
     score: float | None = None,
     marked: bool | None = None,
+    origin: str | None = None,
 ) -> int:
+    """*origin* "source": the passage was already annotated in the source file (read-only)."""
     with get_db() as conn:
         cur = conn.execute(
             """INSERT INTO quotes (source_id, span_start, span_end, quote_text,
-                                   quote_type, score, marked)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                   quote_type, score, marked, origin)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (source_id, span_start, span_end, quote_text, quote_type, score,
-             None if marked is None else int(bool(marked))),
+             None if marked is None else int(bool(marked)), origin),
         )
         quote_id = cur.lastrowid
         for ref in references:
@@ -305,7 +310,8 @@ def get_quotes_for_source(source_id: int) -> list[dict]:
 
 def delete_quotes_for_source(source_id: int):
     with get_db() as conn:
-        conn.execute("DELETE FROM quotes WHERE source_id = ?", (source_id,))
+        # annotations that come from the source file are kept: they are part of the file
+        conn.execute("DELETE FROM quotes WHERE source_id = ? AND COALESCE(origin, '') != 'source'", (source_id,))
 
 
 def delete_quotes_in_range(source_id: int, start: int, end: int):
@@ -313,6 +319,7 @@ def delete_quotes_in_range(source_id: int, start: int, end: int):
         conn.execute(
             """DELETE FROM quotes WHERE source_id = ?
                AND span_start IS NOT NULL AND span_end IS NOT NULL
+               AND COALESCE(origin, '') != 'source'
                AND NOT (span_end <= ? OR span_start >= ?)""",
             (source_id, start, end),
         )
@@ -580,3 +587,9 @@ def get_quote_source_id(quote_id: int) -> int | None:
     with get_db() as conn:
         row = conn.execute("SELECT source_id FROM quotes WHERE id = ?", (quote_id,)).fetchone()
         return row["source_id"] if row else None
+
+
+def get_quote_origin(quote_id: int) -> str | None:
+    with get_db() as conn:
+        row = conn.execute("SELECT origin FROM quotes WHERE id = ?", (quote_id,)).fetchone()
+        return row["origin"] if row else None

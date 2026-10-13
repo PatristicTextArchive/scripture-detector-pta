@@ -126,7 +126,9 @@ def test_handmade_annotation_is_preserved_and_not_duplicated():
             "<hi>weiter</hi> mehr Text</p>")
     xml = wrap(body)
     data = tei_doc.read_tei(xml, ABBR)
-    assert data.annotations == []                      # foreign markup is not imported ...
+    assert len(data.annotations) == 1                  # hand-made markup is read ...
+    a0 = data.annotations[0]
+    assert a0["origin"] == "source" and a0["refs"] == ["gn_2:24"] and a0["quote_text"] == GN
     out, warns = tei_doc.annotate_tei(xml, [ann(data.text, GN, ["gn_2:24"])], BOOKS)
     s = out.decode()
     assert s.count("<quote") == 1 and "sd-q" not in s    # ... and not duplicated
@@ -371,3 +373,35 @@ def test_split_in_two_prefers_paragraphs_keeps_overlap_and_loses_nothing():
     assert x + y[len(y) - (len(text) - len(x)):] == text                 # no gap
     assert 0 < len(x) + len(y) - len(text) <= 120                        # a little overlap
     assert y.startswith("wort")                                          # starts at a word boundary
+
+
+# ── annotations that are already in the source file ──────────────────────────
+
+def test_source_annotations_are_read_with_origin_source():
+    xml = wrap(f"<p>A <quote type='marked'>{GN}<ref decls='#biblical' cRef='LXX:Gn:2:24'/></quote> b "
+               "<seg type='allusion'>vom Ende<ref decls='#biblical' cRef='NA:Mt:5:9'/></seg> c "
+               "<quote type='paraphrasis'>eine Umschreibung<ref decls='#biblical' cRef='LXX:Ps:62:9'/></quote> d "
+               "<quote>ohne Referenz</quote> e <quote>fremd<ref cRef='other:1'/></quote></p>")
+    data = tei_doc.read_tei(xml, ABBR)
+    by = {a["quote_text"]: a for a in data.annotations}
+    assert set(by) == {GN, "vom Ende", "eine Umschreibung"}                  # quotes without a biblical ref are not annotations
+    assert all(a["origin"] == "source" for a in by.values())
+    assert by[GN]["marked"] is True and by[GN]["quote_type"] == "full" and by[GN]["refs"] == ["gn_2:24"]
+    assert by["vom Ende"]["quote_type"] == "allusion" and by["vom Ende"]["refs"] == ["mt_5:9"]
+    assert by["eine Umschreibung"]["quote_type"] == "paraphrase"
+
+
+def test_source_annotations_with_unknown_references_are_kept_with_their_cref():
+    xml = wrap("<p>Text <quote>etwas Bekanntes<ref decls='#biblical' cRef='Peshitta:Gn:1:1'/></quote> Ende</p>")
+    (a,) = tei_doc.read_tei(xml, ABBR).annotations
+    assert a["origin"] == "source" and a["refs"] == [] and a["crefs"] == ["Peshitta:Gn:1:1"]
+
+
+def test_tool_refs_in_existing_quotes_are_not_source_annotations_but_human_refs_win():
+    xml = wrap(f"<p><quote>{GN}<ref decls='#biblical' cRef='LXX:Gn:2:24' xml:id='sd-r1'/></quote> und "
+               f"<quote>{PHIL_Q}<ref decls='#biblical' cRef='NA:Phil:2:8'/><ref decls='#biblical' cRef='NA:Phil:2:9' xml:id='sd-r2'/></quote></p>")
+    data = tei_doc.read_tei(xml, {**ABBR, ("na", "phil"): "phil"})
+    by = {a["quote_text"]: a for a in data.annotations}
+    assert by[GN]["origin"] == "tool"                                          # added by this tool earlier
+    assert by[PHIL_Q]["origin"] == "source" and by[PHIL_Q]["crefs"] == ["NA:Phil:2:8"]
+    assert len(data.annotations) == 2

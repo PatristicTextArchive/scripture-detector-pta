@@ -31,7 +31,7 @@ from database import (
     delete_quotes_for_source, delete_quotes_in_range,
     get_setting, set_setting, get_all_settings,
     get_book_distribution, get_quote_type_distribution, get_dashboard_data,
-    search_sources, get_quote_source_id,
+    search_sources, get_quote_source_id, get_quote_origin,
 )
 from collections import OrderedDict
 
@@ -686,6 +686,7 @@ def api_get_source(source_id: int):
             "quote_type": q["quote_type"],
             "score": q.get("score"),
             "marked": q.get("marked"),
+            "origin": q.get("origin") or "tool",
             "refs": refs,
             "verses": verse_lookup,
         })
@@ -732,7 +733,7 @@ def export_source_tei(source: dict) -> tuple[bytes, list[str]]:
         "quote_type": q["quote_type"],
         "marked": None if q.get("marked") is None else bool(q["marked"]),
         "refs": [r["reference"] for r in q["references"]],
-    } for q in quotes]
+    } for q in quotes if q.get("origin") != "source"]      # these are in the file already, untouched
     info = corpus.book_info()
     if source.get("tei_xml"):
         return tei_doc.annotate_tei(bytes(source["tei_xml"]), anns, info, expected_text=source["text"])
@@ -830,18 +831,25 @@ def import_tei_bytes(xml_bytes: bytes, fallback_name: str) -> dict:
         lang = corpora.guess_lang(data.text)
     corpus = corpora.get_corpus(lang)
     source_id = create_source(data.name, data.text, tei_xml=xml_bytes, lang=lang)
-    restored = 0
+    restored = in_source = 0
     for ann in data.annotations:
+        origin = ann.get("origin", "tool")
         refs = corpus.refs_from_crefs(ann["crefs"])
         if not refs:
-            continue
+            if origin != "source":
+                continue
+            refs = list(ann["crefs"])           # a reference this corpus does not know: shown as it is
         add_quote(
             source_id=source_id, span_start=ann["span_start"], span_end=ann["span_end"],
             quote_text=ann["quote_text"], quote_type=ann["quote_type"], references=refs,
             score=corpus.score_for(ann["quote_text"], refs), marked=ann["marked"],
+            origin="source" if origin == "source" else None,
         )
-        restored += 1
-    return {"id": source_id, "name": data.name, "annotations": restored, "lang": lang}
+        if origin == "source":
+            in_source += 1
+        else:
+            restored += 1
+    return {"id": source_id, "name": data.name, "annotations": restored, "in_source": in_source, "lang": lang}
 
 
 @app.route("/api/import/tei", methods=["POST"])
@@ -888,8 +896,23 @@ def api_import_zip():
 
 # ── API: Processing ──────────────────────────────────────────────────────────
 
-def _store_detected(source_id: int, items: list[dict]) -> int:
+SOURCE_ANNOTATION_MSG = ("This annotation was already in the source file. It is kept as it is and cannot be "
+                         "changed or deleted here; edit the TEI file instead.")
+
+
+def _store_detected(source_id: int, items: list[dict], stats: dict | None = None) -> int:
+    """Store the detected quotations; passages that overlap an annotation which is already
+    in the source file are skipped (the source's own markup is kept as it is)."""
+    spans = [(q["span_start"], q["span_end"]) for q in get_quotes_for_source(source_id)
+             if q.get("origin") == "source" and q["span_start"] is not None]
+    stored = 0
     for q in items:
+        if q["span_start"] is not None and any(
+                min(q["span_end"], e) - max(q["span_start"], s) >= 0.5 * min(q["span_end"] - q["span_start"], e - s)
+                for s, e in spans):
+            if stats is not None:
+                stats["in_source"] = stats.get("in_source", 0) + 1
+            continue
         add_quote(
             source_id=source_id,
             span_start=q["span_start"],
@@ -900,7 +923,8 @@ def _store_detected(source_id: int, items: list[dict]) -> int:
             score=q.get("score"),
             marked=q.get("marked"),
         )
-    return len(items)
+        stored += 1
+    return stored
 
 
 @app.route("/api/sources/<int:source_id>/process", methods=["POST"])
@@ -912,7 +936,7 @@ def api_process_source(source_id: int):
         stats: dict = {}
         items = detect_quotes(source["text"], source_lang(source), hints=hints_for(source), stats=stats)
         delete_quotes_for_source(source_id)
-        return jsonify({"status": "ok", "count": _store_detected(source_id, items), "rag": stats})
+        return jsonify({"status": "ok", "count": _store_detected(source_id, items, stats), "rag": stats})
     except gemini_limits.GeminiLimitError as e:
         return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:
@@ -938,7 +962,7 @@ def api_process_selection(source_id: int):
         stats: dict = {}
         items = detect_quotes(selection_text, source_lang(source), offset=start, hints=hints_for(source), stats=stats)
         delete_quotes_in_range(source_id, start, end)
-        return jsonify({"status": "ok", "count": _store_detected(source_id, items), "rag": stats})
+        return jsonify({"status": "ok", "count": _store_detected(source_id, items, stats), "rag": stats})
     except gemini_limits.GeminiLimitError as e:
         return jsonify({"error": e.user_message(), "retryable": isinstance(e, gemini_limits.RateLimited)}), 429
     except Exception as e:
@@ -970,6 +994,8 @@ def api_add_quote():
 
 @app.route("/api/quotes/<int:quote_id>", methods=["PUT"])
 def api_update_quote(quote_id: int):
+    if get_quote_origin(quote_id) == "source":
+        return jsonify({"error": SOURCE_ANNOTATION_MSG}), 409
     body = request.get_json()
     score = None
     if body.get("references") is not None and body.get("quote_text"):
@@ -991,6 +1017,8 @@ def api_update_quote(quote_id: int):
 
 @app.route("/api/quotes/<int:quote_id>", methods=["DELETE"])
 def api_delete_quote(quote_id: int):
+    if get_quote_origin(quote_id) == "source":
+        return jsonify({"error": SOURCE_ANNOTATION_MSG}), 409
     delete_quote(quote_id)
     return jsonify({"status": "ok"})
 

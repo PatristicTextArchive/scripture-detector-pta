@@ -338,17 +338,17 @@ def existing_quotes(xml_bytes: bytes) -> list[dict]:
             for c in _foreign_quote_chains(root, tm) if not c["biblical"] and c["end"] > c["start"]]
 
 
-def _annotation(tm, s, e, crefs, qtype, marked, abbr_to_code):
+def _annotation(tm, s, e, crefs, qtype, marked, abbr_to_code, origin="tool"):
     if s >= e or not crefs:
         return None
     refs: list[str] = []
     if abbr_to_code is not None:
         for c in crefs:
             refs.extend(greek.parse_cref(c, abbr_to_code))
-        if not refs:
+        if not refs and origin != "source":
             return None
     return {"span_start": s, "span_end": e, "quote_text": tm.text[s:e], "quote_type": qtype,
-            "crefs": crefs, "refs": refs, "marked": marked}
+            "crefs": crefs, "refs": refs, "marked": marked, "origin": origin}
 
 
 def read_tei(xml_bytes: bytes, abbr_to_code: dict | None = None,
@@ -378,12 +378,30 @@ def read_tei(xml_bytes: bytes, abbr_to_code: dict | None = None,
             data.annotations.append(ann)
 
     for ch in _foreign_quote_chains(root, tm):
-        if not ch["own_refs"]:
+        if not ch["own_refs"] or ch["biblical"]:
             continue
         typ = ch["els"][0].get("type")
         ann = _annotation(tm, ch["start"], ch["end"], [r.get("cRef") for r in ch["own_refs"]],
                           "paraphrase" if typ == "paraphrasis" else "full",
                           {"marked": True, "unmarked": False}.get(typ), abbr_to_code)
+        if ann:
+            data.annotations.append(ann)
+
+    # Biblical markup that is already in the source file (made by hand, e.g. in a PTA edition):
+    # shown in the viewer, never changed by the export.  origin = "source".
+    for ch in _foreign_quote_chains(root, tm):
+        human = [r.get("cRef") for el in ch["els"] for r in el if _is_biblical_ref(r) and not _is_own_ref(r)]
+        typ = ch["els"][0].get("type")
+        ann = _annotation(tm, ch["start"], ch["end"], human, "paraphrase" if typ == "paraphrasis" else "full",
+                          {"marked": True, "unmarked": False}.get(typ), abbr_to_code, origin="source")
+        if ann:
+            data.annotations.append(ann)
+    for el in root.iter(T + "seg"):
+        if _own(el) or el not in tm.spans or el.get("type") != "allusion":
+            continue
+        human = [r.get("cRef") for r in el if _is_biblical_ref(r) and not _is_own_ref(r)]
+        s0, e0 = _trim(tm, *tm.spans[el])
+        ann = _annotation(tm, s0, e0, human, "allusion", None, abbr_to_code, origin="source")
         if ann:
             data.annotations.append(ann)
 

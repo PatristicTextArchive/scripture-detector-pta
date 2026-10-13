@@ -529,6 +529,7 @@
         <li><strong>Existing <code>&lt;quote&gt;</code> elements</strong> are never duplicated: they only receive the <code>&lt;ref&gt;</code> and, if missing, a <code>@type</code>. Quotes that already carry a biblical reference stay untouched.</li>
         <li>The header receives the <code>refsDecl</code> for <code>#biblical</code>, the annotation-status declarations, and a <code>&lt;change&gt;</code> entry; the status is declared as <em>partially annotated</em> — please review the automatic results.</li>
         <li>Re-importing an exported file restores the annotations, and re-exporting replaces them instead of duplicating them.</li>
+        <li><strong>Annotations already in the source file</strong> (quotations with a biblical reference made by hand) are shown in the viewer with grey hatching and an <em>in source</em> badge, and can be hidden with a checkbox. They are read-only, survive re-processing, are not duplicated by detected passages, and the export leaves them untouched.</li>
         <li>In manuscript transcriptions the PTA does not use <code>&lt;quote&gt;</code>; the export warns in that case.</li>
       </ul>
     </div>
@@ -653,6 +654,7 @@
         <li><strong>Greek and Latin</strong> corpora (Septuagint, New Testament, Vulgate); the language of a TEI file is read from <code>xml:lang</code>.</li>
         <li><strong>TEI import and export</strong> following the PTA encoding guidelines (<code>&lt;quote&gt;</code>, <code>&lt;seg type="allusion"&gt;</code>, <code>&lt;ref decls="#biblical" cRef="…"/&gt;</code>).</li>
         <li>Existing <code>&lt;quote&gt;</code> elements are checked for biblical references and enriched instead of duplicated.</li>
+        <li>Quotations that are already annotated in the TEI source are highlighted separately (<em>in source</em>) and kept as they are.</li>
         <li><strong>Retrieval from the Bible texts (RAG):</strong> candidate verses in the prompt, repair of wrong references, addition of clear matches, or a pure text search without any model.</li>
         <li>Accent-, breathing-, and case-insensitive matching; every reference is validated, and each quote gets a match score.</li>
         <li>Export notes list the affected passage with context and location in the file.</li>

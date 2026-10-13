@@ -1003,7 +1003,9 @@ function handleTeiUpload(input) {
         showToast(`Imported ${n} TEI file${n !== 1 ? 's' : ''}, ${bad.length} failed. See the list for details.`, n ? 'warn' : false);
         showNotice('TEI files that could not be imported', bad.map(b => `${b.file}: ${b.error}`), {kind: 'err'});
       } else {
-        showToast(`Imported ${n} TEI file${n !== 1 ? 's' : ''}`, true);
+        const inSrc = (data.imported || []).reduce((a, x) => a + (x.in_source || 0), 0);
+        showToast(`Imported ${n} TEI file${n !== 1 ? 's' : ''}` +
+                  (inSrc ? `; ${inSrc} biblical quotation${inSrc !== 1 ? 's' : ''} already annotated in the source are shown separately` : ''), true);
       }
       if (n) loadAll();
     })
