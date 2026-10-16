@@ -2,6 +2,7 @@
 
 ``grc`` -> data/greek   (LXX + NT, PTA texts; cRef prefixes LXX / NA)
 ``lat`` -> data/vulgate (Vulgate;             cRef prefix   Vg)
+``syc`` -> data/syriac  (Peshitta, PTA texts; cRef prefix   Peshitta)
 
 Every source document belongs to one language; verses, book codes, prompt and
 PTA abbreviations are taken from the matching corpus.
@@ -16,31 +17,38 @@ from pathlib import Path
 import greek
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-DIRS = {"grc": DATA_DIR / "greek", "lat": DATA_DIR / "vulgate"}
+DIRS = {"grc": DATA_DIR / "greek", "lat": DATA_DIR / "vulgate", "syc": DATA_DIR / "syriac"}
 LANGUAGES = tuple(DIRS)
 DEFAULT_LANG = "grc"
 
 
 def normalize_lang(code: str | None) -> str | None:
-    """xml:lang value -> 'grc' / 'lat'; None if unsupported."""
+    """xml:lang value -> 'grc' / 'lat' / 'syc'; None if unsupported."""
     c = (code or "").strip().lower()
     if c == "grc" or c.startswith("grc-"):
         return "grc"
     if c in ("lat", "la") or c.startswith(("lat-", "la-")):
         return "lat"
+    if c in ("syc", "syr") or c.startswith(("syc-", "syr-")):        # Classical Syriac / Syriac
+        return "syc"
     return None
 
 
 def guess_lang(text: str) -> str:
-    """Greek if a substantial share of the letters is in Greek script."""
-    greek_n = latin_n = 0
+    """Syriac or Greek if a substantial share of the letters is in that script, else Latin."""
+    greek_n = latin_n = syriac_n = 0
     for ch in text[:20000]:
         o = ord(ch)
-        if 0x370 <= o <= 0x3FF or 0x1F00 <= o <= 0x1FFF:
+        if 0x700 <= o <= 0x74F or 0x860 <= o <= 0x86F:
+            syriac_n += 1
+        elif 0x370 <= o <= 0x3FF or 0x1F00 <= o <= 0x1FFF:
             greek_n += 1
         elif ch.isalpha():
             latin_n += 1
-    return "grc" if greek_n > 0.3 * max(1, greek_n + latin_n) else "lat"
+    total = max(1, greek_n + latin_n + syriac_n)
+    if syriac_n > 0.3 * total:
+        return "syc"
+    return "grc" if greek_n > 0.3 * total else "lat"
 
 
 def _norm_id(value: str) -> str:
@@ -187,4 +195,4 @@ def get_corpus(lang: str | None) -> Corpus:
 
 def merged_mapping() -> dict[str, dict]:
     """Book names across all corpora (for dashboards): Latin names win for shared codes."""
-    return {**get_corpus("grc").mapping, **get_corpus("lat").mapping}
+    return {**get_corpus("syc").mapping, **get_corpus("grc").mapping, **get_corpus("lat").mapping}

@@ -327,10 +327,10 @@
 <div class="hero">
   <img src="/static/logo.svg" alt="Scripture Detector Logo" class="hero-logo">
   <h1>Scripture Detector</h1>
-  <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in Greek and Latin texts — with TEI import and export following the encoding guidelines of the Patristic Text Archive.</p>
+  <p>An AI-powered tool for detecting, classifying, and analyzing biblical quotations, paraphrases, and allusions in Greek, Latin and Syriac texts — with TEI import and export following the encoding guidelines of the Patristic Text Archive.</p>
   <div class="hero-badges">
     <span class="hero-badge"><span class="dot"></span>Google Gemini or local models</span>
-    <span class="hero-badge"><span class="dot"></span>Greek &amp; Latin</span>
+    <span class="hero-badge"><span class="dot"></span>Greek, Latin &amp; Syriac</span>
     <span class="hero-badge"><span class="dot"></span>TEI · PTA encoding</span>
     <span class="hero-badge"><span class="dot"></span>Yale University (original)</span>
     <span class="hero-badge"><span class="dot"></span>Berlin-Brandenburg Academy of Sciences and the Humanities, Patristic Text Archive (fork)</span>
@@ -396,7 +396,7 @@
         Each detected passage is linked to the exact verse(s) it references, displayed in context within the original document, and explored through interactive visualizations. The application is designed for scholars, students, and researchers working with texts that draw on the biblical tradition.
       </p>
       <p>
-        This version works with <strong>Greek</strong> texts (Septuagint and New Testament) and <strong>Latin</strong> texts (Vulgate), and reads and writes <strong>TEI XML</strong>: detected quotations are written back into the TEI file following the encoding guidelines of the
+        This version works with <strong>Greek</strong> texts (Septuagint and New Testament), <strong>Latin</strong> texts (Vulgate) and <strong>Syriac</strong> texts (Peshitta), and reads and writes <strong>TEI XML</strong>: detected quotations are written back into the TEI file following the encoding guidelines of the
         <a href="https://pta.bbaw.de" target="_blank" rel="noopener">Patristic Text Archive</a>. It is a fork of the
         <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">Scripture Detector</a> by Dr. William J.B. Mattingly (Yale University).
       </p>
@@ -415,7 +415,7 @@
           <div class="step-num">1</div>
           <div class="step-body">
             <h3>Add a Source Text or import TEI</h3>
-            <p>Paste any Greek or Latin text — a sermon, a letter, a chronicle, a theological treatise — into the Sources page, or import one or more TEI files. For TEI the language is read from <code>xml:lang</code> of the first <code>&lt;div&gt;</code> in <code>&lt;text&gt;</code> (<code>grc</code> or <code>lat</code>); the running text is extracted and the original XML is kept. Everything is stored locally in a SQLite database.</p>
+            <p>Paste any Greek, Latin or Syriac text — a sermon, a letter, a chronicle, a theological treatise — into the Sources page, or import one or more TEI files. For TEI the language is read from <code>xml:lang</code> of the first <code>&lt;div&gt;</code> in <code>&lt;text&gt;</code> (<code>grc</code>, <code>lat</code> or <code>syc</code>); the running text is extracted and the original XML is kept. Everything is stored locally in a SQLite database.</p>
           </div>
         </div>
         <div class="step">
@@ -487,7 +487,7 @@
         Bible Texts &amp; the Patristic Text Archive
       </h2>
       <p>
-        The Greek Bible texts come from the <strong><a href="https://pta.bbaw.de" target="_blank" rel="noopener">Patristic Text Archive</a></strong> (PTA), a digital archive of patristic and related texts at the Berlin-Brandenburg Academy of Sciences and Humanities. They are taken from the PTA data repository on GitHub,
+        The Greek and Syriac Bible texts come from the <strong><a href="https://pta.bbaw.de" target="_blank" rel="noopener">Patristic Text Archive</a></strong> (PTA), a digital archive of patristic and related texts at the Berlin-Brandenburg Academy of Sciences and Humanities. They are taken from the PTA data repository on GitHub,
         <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener">PatristicTextArchive/pta_data</a> (<code>data/pta9999</code>, Greek editions <code>grc1</code>): the <strong>Septuagint</strong> in Rahlfs' numbering and the <strong>Greek New Testament</strong> — 80 books and 37,034 verses.
       </p>
       <ul>
@@ -495,7 +495,8 @@
         <li>Book codes follow the PTA abbreviations (<code>Gn</code>, <code>Ps</code>, <code>Mt</code>, …), so that references can be exported as <code>LXX:Ps:62:9</code> or <code>NA:Mt:5:9</code>. For Latin texts the prefix is <code>Vg</code> (<code>Vg:Gn:1:1</code>).</li>
         <li>Only the primary text form (<code>grc1</code>) of each book is used; alternative forms (e.g. Judges B, Old Greek Daniel) are not included.</li>
         <li>The Latin <strong>Vulgate</strong> verse database was part of the original Scripture Detector.</li>
-        <li>To rebuild the Greek data: <code>python scripts/build_greek_bible.py --pta-data /path/to/pta_data</code></li>
+        <li>The <strong>Syriac Bible (Peshitta)</strong> is taken from the same repository (<code>*-syc1.xml</code> in <code>data/pta9999</code>; 84 books, 38,120 verses); references use the prefix <code>Peshitta</code> (<code>Peshitta:Gn:1:1</code>), and the text is shown right to left. <strong>Licence: the Old Testament and deuterocanonical books come from the ETCBC Peshitta project (CC BY-NC 4.0 — non-commercial use only); the New Testament (Gwilliam edition, TEI by James E. Walters) is CC BY-SA 4.0.</strong> The licences of every book are listed in <code>data/syriac/LICENSES.md</code>.</li>
+        <li>To rebuild the data: <code>python scripts/build_greek_bible.py --pta-data /path/to/pta_data</code> and <code>python scripts/build_syriac_bible.py --pta-data /path/to/pta_data</code></li>
       </ul>
       <div class="api-note">
         <div class="api-note-icon">🔗</div>
@@ -592,7 +593,7 @@
       <ul>
         <li>Python 3.11+ with Flask — the entire backend runs as a lightweight local web application.</li>
         <li>SQLite — all sources, annotations, and settings are stored in a local database with no external server required.</li>
-        <li>Bible verse databases are included and used for verse lookup, reference validation, and match scores: the Greek Bible (Septuagint and New Testament, 37,034 verses, from the Patristic Text Archive) and the Latin Vulgate. lxml is used to read and write TEI.</li>
+        <li>Bible verse databases are included and used for verse lookup, reference validation, and match scores: the Greek Bible (Septuagint and New Testament, 37,034 verses, from the Patristic Text Archive) the Latin Vulgate and the Syriac Peshitta. lxml is used to read and write TEI.</li>
         <li>A model: either Google Vertex AI or a Gemini API key from <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--primary-mid);font-weight:600">Google AI Studio</a> — or a <strong>local model</strong> (see <em>AI Models</em> above), so that no external service is needed at all.</li>
       </ul>
       <div class="api-note">
@@ -625,7 +626,7 @@
         </div>
         <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-mid)">
           <strong style="color:var(--primary-mid)">Bible Book</strong>
-          <p>Find all sources that contain any reference to a chosen Bible book, using a searchable dropdown of all books of the Greek and Latin corpora.</p>
+          <p>Find all sources that contain any reference to a chosen Bible book, using a searchable dropdown of all books of the Greek, Latin and Syriac corpora.</p>
         </div>
         <div class="type-item" style="background:rgba(0,53,107,.06);border-color:var(--primary-light)">
           <strong style="color:var(--primary)">Chapter</strong>
@@ -651,7 +652,7 @@
       </h2>
       <ul>
         <li>Full-text AI analysis using Google Gemini or a local model with structured JSON output, chunked for long texts.</li>
-        <li><strong>Greek and Latin</strong> corpora (Septuagint, New Testament, Vulgate); the language of a TEI file is read from <code>xml:lang</code>.</li>
+        <li><strong>Greek, Latin and Syriac</strong> corpora (Septuagint, New Testament, Vulgate, Peshitta); the language of a TEI file is read from <code>xml:lang</code>.</li>
         <li><strong>TEI import and export</strong> following the PTA encoding guidelines (<code>&lt;quote&gt;</code>, <code>&lt;seg type="allusion"&gt;</code>, <code>&lt;ref decls="#biblical" cRef="…"/&gt;</code>).</li>
         <li>Existing <code>&lt;quote&gt;</code> elements are checked for biblical references and enriched instead of duplicated.</li>
         <li>Quotations that are already annotated in the TEI source are highlighted separately (<em>in source</em>) and kept as they are.</li>
@@ -669,7 +670,7 @@
         <li>Model switching — choose between available Gemini model versions, or configure a local model and test the connection in Settings.</li>
         <li>Runs locally — your texts leave your machine only for a Gemini/Vertex request; with a local model nothing is sent anywhere.</li>
         <li>Notifications that stay readable: stacked messages, and a complete list of all export warnings and import errors in a dialog (with <em>Copy all</em>).</li>
-        <li>Open source: <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">original project</a> (Yale University) · Greek/Latin/TEI version based on it.</li>
+        <li>Open source: <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener">original project</a> (Yale University) · Greek/Latin/Syriac/TEI version based on it.</li>
       </ul>
     </div>
 
@@ -706,7 +707,7 @@
   <!-- Footer -->
   <div style="text-align:center;padding:40px 0 24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border-light);margin-top:40px">
     Original application developed by Dr. William J.B. Mattingly · Yale University · 2026 · <a href="https://github.com/yale-ch/scripture-detector" target="_blank" rel="noopener" style="color:var(--primary-mid)">github.com/yale-ch/scripture-detector</a><br>
-    Greek Bible texts and encoding guidelines: <a href="https://pta.bbaw.de" target="_blank" rel="noopener" style="color:var(--primary-mid)">Patristic Text Archive</a> (BBAW) · <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener" style="color:var(--primary-mid)">GitHub</a> · CC BY-SA 4.0<br>
+    Greek and Syriac Bible texts and encoding guidelines: <a href="https://pta.bbaw.de" target="_blank" rel="noopener" style="color:var(--primary-mid)">Patristic Text Archive</a> (BBAW) · <a href="https://github.com/PatristicTextArchive/pta_data" target="_blank" rel="noopener" style="color:var(--primary-mid)">GitHub</a> · Greek: CC BY-SA 4.0 · Syriac: Old Testament CC BY-NC 4.0 (ETCBC), New Testament CC BY-SA 4.0<br>
     Built for the <a href="https://www.oeaw.ac.at/en/imafo/events/event-details/ruse-of-reuse" target="_blank" style="color:var(--primary-mid)">Ruse of Reuse</a> workshop, Austrian Academy of Sciences, Vienna · March 5–6, 2026
   </div>
 </div>

@@ -198,9 +198,9 @@ def test_latin_tei_uses_vulgate_and_vg_prefix(client, monkeypatch):
 
 
 def test_unsupported_language_is_rejected_and_paste_is_detected(client):
-    syr = TEI_LAT.replace(b'xml:lang="lat"', b'xml:lang="syr"')
+    syr = TEI_LAT.replace(b'xml:lang="lat"', b'xml:lang="cop"')
     r = client.post("/api/import/tei", data={"files": (io.BytesIO(syr), "syr.xml")}, content_type="multipart/form-data")
-    assert r.status_code == 400 and "Unsupported language 'syr'" in r.get_json()["errors"][0]["error"]
+    assert r.status_code == 400 and "Unsupported language 'cop'" in r.get_json()["errors"][0]["error"]
     assert client.post("/api/sources", json={"name": "L", "text": LAT}).get_json()["lang"] == "lat"
     assert client.post("/api/sources", json={"name": "G", "text": MT_5_9}).get_json()["lang"] == "grc"
     lat_books = client.get("/api/bible/books?lang=lat").get_json()

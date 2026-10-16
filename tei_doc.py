@@ -427,7 +427,7 @@ _ABBR_LIST = (
     "2Mak, 3Mak, 4Mak, Ps, Oden, Prov, Eccl, Song, Job, Wis, Sir, PsSal, Hos, Am, Mi, Joel, Ob, Jon, Nah, "
     "Hab, Zeph, Hag, Sach, Mal, Is, Jr, Bar, Lam, EpistJer, Hes, Sus (Sus-LXX), Dn (Dn-LXX), Bel (Bel-LXX); "
     "Mt, Mk, Lk, Jn, Act, Rom, 1Cor, 2Cor, Gal, Eph, Phil, Col, 1Th, 2Th, 1Tim, 2Tim, Tt, Phm, Heb, Jak, "
-    "1P, 2P, 1Jn, 2Jn, 3Jn, Jud, Rev; Neh (Vulgate only)."
+    "1P, 2P, 1Jn, 2Jn, 3Jn, Jud, Rev; Neh (Vulgate, Peshitta); PrMan, 4Esr, 2Bar (Peshitta only)."
 )
 
 _STATUS_CATEGORIES = [
@@ -495,7 +495,8 @@ def _declare_in_header(root, n_annotations: int, note: str) -> None:
             if i == 0:
                 _sub(c, "p", "For references to the Septuagint LXX is used as abbreviation, for references "
                              "to the New Testament NA is used as abbreviation for the version, for "
-                             "references to the Latin Vulgate Vg.")
+                             "references to the Latin Vulgate Vg, for references to the Syriac "
+                             "Peshitta Peshitta.")
                 _sub(c, "p", desc)
                 _sub(c, "p", "The following abbreviations are used: " + _ABBR_LIST)
             else:
@@ -533,7 +534,7 @@ def _declare_in_header(root, n_annotations: int, note: str) -> None:
     rev = _child(header, "revisionDesc")
     if rev is None:
         rev = etree.SubElement(header, T + "revisionDesc")
-    _sub(rev, "change", f"Biblical quotations and allusions annotated automatically with Scripture Detector PTA "
+    _sub(rev, "change", f"Biblical quotations and allusions annotated automatically with Scripture Detector "
                         f"({n_annotations} annotations, not manually verified).", when=date.today().isoformat())
 
 

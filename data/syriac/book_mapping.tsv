@@ -1,0 +1,85 @@
+testament	work_name	greek_name	book_code	pta_abbr	pta_corpus
+ot	Genesis		gn	Gn	Peshitta
+ot	Exodus		ex	Ex	Peshitta
+ot	Leviticus		lv	Lv	Peshitta
+ot	Numbers		num	Num	Peshitta
+ot	Deuteronomy		dt	Dt	Peshitta
+ot	Joshua		jos	Jos	Peshitta
+ot	Judges		judg	Judg	Peshitta
+ot	Ruth		rt	Rt	Peshitta
+ot	1 Samuel (1 Kingdoms)		1sa	1Sa	Peshitta
+ot	2 Samuel (2 Kingdoms)		2sa	2Sa	Peshitta
+ot	1 Kings (3 Kingdoms)		1ko	1Ko	Peshitta
+ot	2 Kings (4 Kingdoms)		2ko	2Ko	Peshitta
+ot	1 Chronicles (1 Paralipomena)		1chr	1Chr	Peshitta
+ot	2 Chronicles (2 Paralipomena)		2chr	2Chr	Peshitta
+ap	Prayer of Manasseh		prman	PrMan	Peshitta
+ot	Ezra		esr	Esr	Peshitta
+ot	Nehemiah		neh	Neh	Peshitta
+ap	1 Esdras (3 Esdras)		3esr	3Esr	Peshitta
+ap	4 Ezra (2 Esdras)		4esr	4Esr	Peshitta
+ot	Esther		est	Est	Peshitta
+ap	Judith		jdt	Jdt	Peshitta
+ap	Tobit		tob	Tob	Peshitta
+ap	1 Maccabees		1mak	1Mak	Peshitta
+ap	2 Maccabees		2mak	2Mak	Peshitta
+ap	3 Maccabees		3mak	3Mak	Peshitta
+ap	4 Maccabees		4mak	4Mak	Peshitta
+ot	Psalms (LXX numbering, incl. Ps 151)		ps	Ps	Peshitta
+ap	Odes		oden	Oden	Peshitta
+ot	Proverbs		prov	Prov	Peshitta
+ot	Ecclesiastes		eccl	Eccl	Peshitta
+ot	Song of Songs		song	Song	Peshitta
+ot	Job		job	Job	Peshitta
+ap	Wisdom of Solomon		wis	Wis	Peshitta
+ap	Sirach		sir	Sir	Peshitta
+ap	Psalms of Solomon		pssal	PsSal	Peshitta
+ot	Hosea		hos	Hos	Peshitta
+ot	Amos		am	Am	Peshitta
+ot	Micah		mi	Mi	Peshitta
+ot	Joel		joel	Joel	Peshitta
+ot	Obadiah		ob	Ob	Peshitta
+ot	Jonah		jon	Jon	Peshitta
+ot	Nahum		nah	Nah	Peshitta
+ot	Habakkuk		hab	Hab	Peshitta
+ot	Zephaniah		zeph	Zeph	Peshitta
+ot	Haggai		hag	Hag	Peshitta
+ot	Zechariah		sach	Sach	Peshitta
+ot	Malachi		mal	Mal	Peshitta
+ot	Isaiah		is	Is	Peshitta
+ot	Jeremiah		jr	Jr	Peshitta
+ap	Baruch		bar	Bar	Peshitta
+ot	Lamentations		lam	Lam	Peshitta
+ap	Letter of Jeremiah		epistjer	EpistJer	Peshitta
+ap	2 Baruch (Syriac Apocalypse of Baruch, with the Letter of Baruch, chapters 78-87)		2bar	2Bar	Peshitta
+ot	Ezekiel		hes	Hes	Peshitta
+ap	Susanna		sus	Sus	Peshitta
+ot	Daniel		dn	Dn	Peshitta
+ap	Bel and the Dragon		bel	Bel	Peshitta
+nt	Matthew		mt	Mt	Peshitta
+nt	Mark		mk	Mk	Peshitta
+nt	Luke		lk	Lk	Peshitta
+nt	John		jn	Jn	Peshitta
+nt	Acts		act	Act	Peshitta
+nt	Romans		rom	Rom	Peshitta
+nt	1 Corinthians		1cor	1Cor	Peshitta
+nt	2 Corinthians		2cor	2Cor	Peshitta
+nt	Galatians		gal	Gal	Peshitta
+nt	Ephesians		eph	Eph	Peshitta
+nt	Philippians		phil	Phil	Peshitta
+nt	Colossians		col	Col	Peshitta
+nt	1 Thessalonians		1th	1Th	Peshitta
+nt	2 Thessalonians		2th	2Th	Peshitta
+nt	1 Timothy		1tim	1Tim	Peshitta
+nt	2 Timothy		2tim	2Tim	Peshitta
+nt	Titus		tt	Tt	Peshitta
+nt	Philemon		phm	Phm	Peshitta
+nt	Hebrews		heb	Heb	Peshitta
+nt	James		jak	Jak	Peshitta
+nt	1 Peter		1p	1P	Peshitta
+nt	2 Peter		2p	2P	Peshitta
+nt	1 John		1jn	1Jn	Peshitta
+nt	2 John		2jn	2Jn	Peshitta
+nt	3 John		3jn	3Jn	Peshitta
+nt	Jude		jud	Jud	Peshitta
+nt	Revelation		rev	Rev	Peshitta

@@ -25,13 +25,33 @@ from operator import itemgetter
 
 import greek
 
-STEM = 5
+STEM = 5                # letters kept per word (Greek, Latin)
+SYC_STEM = 4            # Syriac: roots are short, words carry prefixes
+SYC_PROCLITICS = "ܘܒܕܠܟ"  # w- b- d- l- k-: attached conjunction / prepositions / relative particle
+SYC_STRIP = 2           # at most this many proclitics are removed (while 3 letters remain)
 SCALES = ((5, 2), (10, 3))     # (words per window, step): short windows find short quotations
 PER_WINDOW = 20                # verses kept per window
 MAX_DF_RATIO = 0.008   # stems occurring in more verses than this are not used to find candidates
 MAX_DF_MIN = 120
 
-_TOKEN = re.compile(r"(?:[^\W\d_]|[\u0300-\u036f\u0345])+")
+def _mark_class() -> str:
+    """Regex character class of all combining marks of the BMP (Greek accents, Hebrew and Syriac points, ...)."""
+    import unicodedata
+    ranges, start = [], None
+    for cp in range(0x300, 0x10000):
+        is_mark = unicodedata.category(chr(cp)).startswith("M")
+        if is_mark and start is None:
+            start = cp
+        elif not is_mark and start is not None:
+            ranges.append((start, cp - 1))
+            start = None
+    if start is not None:
+        ranges.append((start, 0xFFFF))
+    return "".join(f"\\u{a:04x}" if a == b else f"\\u{a:04x}-\\u{b:04x}" for a, b in ranges)
+
+
+# a word: letters and the combining marks that belong to them (also Syriac vowel points)
+_TOKEN = re.compile(r"(?:[^\W\d_]|[" + _mark_class() + r"])+")
 _LAT = str.maketrans({"v": "u", "j": "i", "æ": "e", "œ": "e", "ę": "e"})
 
 
@@ -49,12 +69,21 @@ def _fold_word(word: str, lang: str) -> str:
     return f
 
 
+def _stem(f: str, lang: str) -> str:
+    if lang == "syc":
+        n = 0
+        while n < SYC_STRIP and len(f) > 3 and f[0] in SYC_PROCLITICS:
+            f, n = f[1:], n + 1
+        return f[:SYC_STEM]
+    return f[:STEM]
+
+
 def tokenize(text: str, lang: str) -> list[Token]:
     out = []
     for m in _TOKEN.finditer(text):
         f = _fold_word(m.group(), lang)
         if f:
-            out.append(Token(m.start(), m.end(), sys.intern(f[:STEM])))
+            out.append(Token(m.start(), m.end(), sys.intern(_stem(f, lang))))
     return out
 
 

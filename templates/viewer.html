@@ -63,6 +63,11 @@
   .main { display: grid; grid-template-columns: 1fr 400px; height: calc(100vh - 160px); }
   @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
 
+  /* Syriac: right to left, with a font that has the Syriac block */
+  :lang(syc) { font-family: 'Estrangelo Edessa', 'Noto Sans Syriac', 'Noto Serif Syriac', 'Serto Jerusalem',
+    'East Syriac Adiabene', 'Segoe UI Historic', serif; }
+  .text-panel:lang(syc) { font-size: 1.3rem; line-height: 2.1; }
+  .ann-quote:lang(syc), .vtext:lang(syc) { font-size: 1.1rem; }
   .text-panel {
     padding: 32px 36px;
     overflow-y: auto;
@@ -350,7 +355,7 @@
 
 <div class="tab-content active" id="tab-text">
   <div class="main">
-    <div class="text-panel" id="text-panel"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+    <div class="text-panel" id="text-panel" lang="{{ source_lang }}"{% if source_lang == 'syc' %} dir="rtl"{% endif %}><div class="loading"><div class="spinner"></div>Loading...</div></div>
     <div class="ann-panel" id="ann-panel"></div>
   </div>
 </div>
@@ -524,7 +529,7 @@ function renderText() {
     let versesHtml = '';
     (a.verses || []).forEach(v => {
       const vt = v.text ? esc(v.text) : '<span style="color:var(--red);font-style:italic">not found</span>';
-      versesHtml += `<div class="ann-verse"><strong>${esc(v.ref)}</strong> <span class="vtext">${vt}</span></div>`;
+      versesHtml += `<div class="ann-verse"><strong>${esc(v.ref)}</strong> <span class="vtext" dir="auto" lang="${SOURCE_LANG}">${vt}</span></div>`;
     });
     annHtml += `
       <div class="ann-card ann-${qt}${isSrc(a) ? ' ann-src' : ''}" data-idx="${i}" data-id="${a.id}">
@@ -534,7 +539,7 @@ function renderText() {
           ${a.score != null ? `<span class="ref-badge" style="${a.score < 0.4 ? 'color:var(--red)' : ''}" title="Share of the quoted words that occur in the referenced verse(s). Low values suggest a wrong reference or a free paraphrase.">match ${Math.round(a.score*100)}%</span>` : ''}
           ${(a.refs||[]).map(r => `<span class="ref-badge">${esc(r)}</span>`).join('')}
         </div>
-        <div class="ann-quote">"${esc(snippet)}${snippet.length < (a.quote_text||'').length ? '...' : ''}"</div>
+        <div class="ann-quote" dir="auto" lang="${SOURCE_LANG}">"${esc(snippet)}${snippet.length < (a.quote_text||'').length ? '...' : ''}"</div>
         ${versesHtml}
         ${isSrc(a) ? `<div class="src-note">Already marked up and annotated in the source file. It is kept as it is and left untouched by the export.</div>` : `
         <div class="ann-actions">

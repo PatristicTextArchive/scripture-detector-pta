@@ -1,0 +1,7 @@
+{
+  "language": "Syriac",
+  "corpus": "the Syriac Bible (the Peshitta, with the deuterocanonical books of the Syriac tradition)",
+  "intro_formulas": "ܟܬܝܒ, ܐܝܟ ܕܟܬܝܒ, ܐܡܪ, ܘܐܡܪ, ܐܝܟ ܕܐܡܪ, ܐܡܪ ܕܝܢ, ܗܟܢܐ ܐܡܪ",
+  "example_refs": "mt_5:9, ps_23:1, 1cor_15:33",
+  "prompt_notes": "The text is Classical Syriac (Peshitta wording, possibly quoted from memory, in a patristic or later work), written right to left, with or without vowel points. Quotations must be referenced according to the versification of the Peshitta: the Psalms follow the Hebrew numbering (Psalm 23 is 'The Lord is my shepherd'), and Ezra and Nehemiah are the separate books esr and neh; 1 Esdras is 3esr and 4 Ezra is 4esr; the Syriac Apocalypse of Baruch and the Letter of Baruch together form 2bar (chapters 1-77 and 78-86). New Testament passages are referenced by the usual chapter and verse numbers."
+}

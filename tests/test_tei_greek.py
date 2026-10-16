@@ -298,7 +298,7 @@ def test_quote_with_human_biblical_ref_is_not_a_hint():
 def test_language_of_first_div_and_vulgate_export():
     import corpora
     assert corpora.normalize_lang("grc") == "grc" and corpora.normalize_lang("la") == "lat"
-    assert corpora.normalize_lang("syr") is None
+    assert corpora.normalize_lang("cop") is None
     lat = "In principio creavit Deus caelum et terram."
     xml = wrap(f"<p>Dicit: {lat} Amen.</p>").replace(b'xml:lang="grc"', b'xml:lang="lat"')
     data = tei_doc.read_tei(xml, None)
