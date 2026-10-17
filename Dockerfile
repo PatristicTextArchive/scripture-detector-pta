@@ -4,14 +4,16 @@
 #   docker build -t scripture-detector .
 #
 # Run (ephemeral in-memory database — data resets on container restart):
-#   docker run -p 5001:5001 scripture-detector
+#   docker run -p 7860:7860 scripture-detector
 #
 # Run (persistent database — mount a host directory):
-#   docker run -p 5001:5001 \
+#   docker run -p 7860:7860 \
 #     -v "$(pwd)/data_volume:/app/db" \
 #     -e SD_DB_DIR=/app/db \
-#     -e GEMINI_API_KEY=your_key_here \
-#     scripture-detector python app.py
+#     scripture-detector uv run python app.py
+#
+# The container listens on port 7860 (SD_PORT).  An API key is entered on the
+# Settings page; the app does not read a GEMINI_API_KEY environment variable.
 #
 # The default CMD uses --cache-db (in-memory SQLite) which is ideal for
 # workshops and demos where persistence across restarts is not needed.
